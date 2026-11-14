@@ -3,7 +3,7 @@
  * Línea temporal interactiva: reproducción diaria o mensual, paso a paso, velocidad,
  * selector de fecha y una pista con el histograma diario de actividad del año.
  */
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { appConfig } from '@/config/app';
 import { brand } from '@/config/brand';
@@ -13,7 +13,20 @@ import { CATEGORY, kindFromIndex } from '@/lib/science/categories';
 import { useStore } from '@/state/store';
 import { Segmented } from '@/components/ui/primitives';
 
-export function TimelineDock({ compact = false }: { compact?: boolean }) {
+export function TimelineDock({ compact = false, measure = true }: { compact?: boolean; measure?: boolean }) {
+  // Publica la altura real del dock (puede ocupar dos filas) para que leyenda y paneles
+  // no queden debajo.
+  const sectionRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!measure || !el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const h = Math.round(entry.borderBoxSize?.[0]?.blockSize ?? el.getBoundingClientRect().height);
+      if (h > 0) document.documentElement.style.setProperty('--dock-h', `${h}px`);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure]);
   const date = useStore((s) => s.date);
   const range = useStore((s) => s.dataRange);
   const playing = useStore((s) => s.playing);
@@ -85,7 +98,7 @@ export function TimelineDock({ compact = false }: { compact?: boolean }) {
   };
 
   return (
-    <section className={`timeline ${compact ? 'timeline--compact' : ''}`} aria-label="Línea temporal" data-reveal>
+    <section ref={sectionRef} className={`timeline ${compact ? 'timeline--compact' : ''}`} aria-label="Línea temporal" data-reveal>
       <div className="timeline__controls">
         <button type="button" className="icon-btn" onClick={() => { setPlaying(false); step(-1); }} aria-label={granularity === 'month' ? 'Mes anterior' : 'Día anterior'} title="Anterior (←)">
           <SkipBack size={16} />

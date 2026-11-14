@@ -196,7 +196,7 @@ export function RegionalView() {
       </div>
 
       <div className="regional__timeline" data-reveal-regional>
-        <TimelineDock compact />
+        <TimelineDock compact measure={false} />
       </div>
     </div>
   );

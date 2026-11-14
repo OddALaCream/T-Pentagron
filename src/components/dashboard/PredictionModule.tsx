@@ -22,6 +22,14 @@ export function PredictionModule({ info }: { info: TargetInfo }) {
   const band = p === null ? null : probabilityBand(p);
   const isRegion = info.kind === 'region' || (detail?.distribution?.length ?? 0) > 0;
 
+  if (!detail && isFetching) {
+    return (
+      <div className="module">
+        <p className="muted small" role="status">Calculando el pronóstico experimental…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="module">
       <div className="forecast-head" data-holo-item>

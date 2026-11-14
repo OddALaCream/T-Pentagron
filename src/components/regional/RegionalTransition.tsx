@@ -30,7 +30,12 @@ export function RegionalTransition() {
       if (transition === 'entering') {
         const id = st.selection?.regionId ?? st.regionalId;
         if (id) st.enterRegional(id);
-      } else st.exitRegional();
+      } else {
+        st.exitRegional();
+        const region = st.regionalId ? regions[st.regionalId] : undefined;
+        const center = st.selection?.kind === 'cell' ? cellCenter(st.selection.h3) : region?.center;
+        if (center) globeBridge.get()?.globe.pointOfView({ ...center, altitude: 1.15 }, 0);
+      }
       overlay.style.opacity = '0';
       st.setTransition(null);
     }, transition === 'entering' ? 4500 : 3000);

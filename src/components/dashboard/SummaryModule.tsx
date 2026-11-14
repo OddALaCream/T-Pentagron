@@ -1,0 +1,149 @@
+'use client';
+import { useState } from 'react';
+import { ArrowDownRight, ArrowRight, ArrowUpRight, CalendarDays, Copy, Check, Orbit, Radar, Sparkles } from 'lucide-react';
+import { useSeries } from '@/hooks/data';
+import { addDays, formatDate, formatMonth, monthEnd, monthStart } from '@/lib/time/dates';
+import { CATEGORY, classify, LAYERS, SENSOR_COLORS } from '@/lib/science/categories';
+import { cellCenter, formatLatLng } from '@/lib/geo/h3';
+import { useStore } from '@/state/store';
+import { Sparkline } from '@/components/charts/charts';
+import { SymbolIcon } from '@/components/ui/SymbolIcon';
+import { Note, SectionTitle, Stat } from '@/components/ui/primitives';
+import type { CellActivity, SeriesPoint } from '@/lib/types/domain';
+import type { TargetInfo } from './useTarget';
+
+function sum(points: SeriesPoint[], key: 'viirs' | 'modis' | 'index'): number {
+  return points.reduce((a, p) => a + (p[key] ?? 0), 0);
+}
+
+export function SummaryModule({ info }: { info: TargetInfo }) {
+  const date = useStore((s) => s.date);
+  const layer = useStore((s) => s.layer);
+  const granularity = useStore((s) => s.granularity);
+  const range = useStore((s) => s.dataRange);
+  const setPanel = useStore((s) => s.setPanel);
+  const setTransition = useStore((s) => s.setTransition);
+  const [copied, setCopied] = useState(false);
+
+  const from = addDays(date, -59);
+  const { data: series, isLoading } = useSeries(info.target, from < range.start ? range.start : from, date);
+  const { data: month } = useSeries(granularity === 'month' ? info.target : null, monthStart(date), monthEnd(date) > range.end ? range.end : monthEnd(date));
+
+  const today = series?.at(-1);
+  const last7 = series?.slice(-7) ?? [];
+  const prev7 = series?.slice(-14, -7) ?? [];
+  const cur = sum(last7, 'index');
+  const prev = sum(prev7, 'index');
+  const trend = prev === 0 ? (cur > 0 ? 1 : 0) : (cur - prev) / prev;
+  const trendLabel = Math.abs(trend) < 0.1 ? 'estable' : trend > 0 ? 'en aumento' : 'en descenso';
+  const TrendIcon = Math.abs(trend) < 0.1 ? ArrowRight : trend > 0 ? ArrowUpRight : ArrowDownRight;
+
+  // Registro del día con la misma forma que usa el globo, para clasificar igual.
+  const record: CellActivity | null = today
+    ? {
+        h3_id: info.h3 ?? info.target.kind, date, resolution: info.resolution ?? 6, regionId: info.region?.id ?? '',
+        center: { lat: 0, lng: 0 }, childCount: info.kind === 'region' ? Math.max(1, info.region?.cellCount ?? 1) : 1, coverage: today.coverage ?? 1,
+        modis_detected: today.modis, viirs_detected: today.viirs, activity_index: today.index, availability_flag: today.availability,
+        is_anomaly: today.anomaly,
+      }
+    : null;
+  const cls = record ? classify(record, layer === 'prediction' ? 'harmonized' : layer, 'day') : null;
+  const meta = CATEGORY[cls?.kind ?? 'none'];
+  const center = info.kind === 'cell' && info.h3 ? cellCenter(info.h3) : info.region?.center;
+
+  const copy = async () => {
+    if (!info.h3) return;
+    try {
+      await navigator.clipboard.writeText(info.h3);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      /* portapapeles no disponible */
+    }
+  };
+
+  return (
+    <div className="module">
+      <div className="summary-head" data-holo-item>
+        <div className="summary-head__place">
+          <span className="summary-head__region">{info.region?.name ?? 'Región'}</span>
+          <span className="summary-head__country">{info.region ? `${info.region.admin} · ${info.region.country}` : ''}</span>
+        </div>
+        <div className={`category-pill category-pill--${cls?.kind ?? 'none'}`} style={{ '--pill': meta.color } as React.CSSProperties}>
+          <SymbolIcon kind={cls?.kind ?? 'none'} size={15} animated />
+          <span>{isLoading ? 'Cargando…' : meta.label}</span>
+        </div>
+      </div>
+
+      <dl className="kv" data-holo-item>
+        <div><dt>Coordenadas</dt><dd className="mono">{center ? formatLatLng(center) : '—'}</dd></div>
+        {info.h3 && (
+          <div>
+            <dt>Identificador H3</dt>
+            <dd className="mono kv__copy">
+              {info.h3}
+              <button type="button" className="icon-btn icon-btn--tiny" onClick={copy} aria-label="Copiar identificador H3" title="Copiar">
+                {copied ? <Check size={12} /> : <Copy size={12} />}
+              </button>
+            </dd>
+          </div>
+        )}
+        {info.kind === 'region' && <div><dt>Celdas H3 (res 6)</dt><dd className="mono">{info.region?.cellCount ?? '—'}</dd></div>}
+        <div><dt>Fecha</dt><dd>{granularity === 'month' ? formatMonth(date) : formatDate(date)} <span className="muted">UTC</span></dd></div>
+        <div><dt>Capa</dt><dd>{LAYERS.find((l) => l.id === layer)?.label}</dd></div>
+        <div>
+          <dt>Disponibilidad</dt>
+          <dd>
+            {today?.availability === 'observed' ? 'Observación válida (ambos sensores)' : today?.availability === 'partial' ? 'Parcial (un solo sensor)' : 'Sin observación válida'}
+          </dd>
+        </div>
+        <div><dt>Fuente</dt><dd>Datos de demostración (FIRMS simulado)</dd></div>
+      </dl>
+
+      {today?.availability === 'missing' && (
+        <Note tone="warn">Sin observación válida este día (nubes o huecos de órbita). No equivale a «sin actividad».</Note>
+      )}
+
+      <div className="stats-grid" data-holo-item>
+        <Stat label="VIIRS" value={today?.viirs ?? '—'} unit="det." tone={SENSOR_COLORS.VIIRS} hint="Detecciones VIIRS 375 m del día" />
+        <Stat label="MODIS" value={today?.modis ?? '—'} unit="det." tone={SENSOR_COLORS.MODIS} hint="Detecciones MODIS 1 km del día" />
+        <Stat label="Índice armonizado" value={today?.index == null ? '—' : today.index.toFixed(2)} tone={SENSOR_COLORS.harmonized} hint="0 = sin detección · 1 = actividad muy alta" />
+        <Stat label="FRP total" value={today ? Math.round((today.viirsFrp ?? 0) + (today.modisFrp ?? 0)) : '—'} unit="MW" hint="Potencia radiativa del fuego (suma de sensores)" />
+      </div>
+
+      {granularity === 'month' && month && (
+        <p className="muted small" data-holo-item>
+          Total de {formatMonth(date)}: VIIRS {sum(month, 'viirs')} · MODIS {sum(month, 'modis')} · {month.filter((p) => (p.index ?? 0) > 0).length} días con actividad.
+        </p>
+      )}
+
+      <div data-holo-item>
+        <SectionTitle aside={<span className={`trend trend--${trend > 0.1 ? 'up' : trend < -0.1 ? 'down' : 'flat'}`}><TrendIcon size={14} /> {trendLabel}{Math.abs(trend) >= 0.1 ? ` ${trend > 0 ? '+' : ''}${Math.round(trend * 100)} %` : ''}</span>}>
+          Tendencia · últimos 60 días
+        </SectionTitle>
+        <Sparkline
+          values={series?.map((p) => p.index) ?? []}
+          missing={series?.map((p) => p.availability === 'missing')}
+          highlight={(series?.length ?? 0) - 1}
+          label="Índice armonizado de los últimos 60 días"
+        />
+        <p className="muted small">Comparación de los últimos 7 días con los 7 anteriores (índice armonizado). Rayado = sin observación.</p>
+      </div>
+
+      <div className="action-row" data-holo-item>
+        <button type="button" className="btn btn--primary" onClick={() => setTransition('entering')}>
+          <Orbit size={15} /> Explorar zona
+        </button>
+        <button type="button" className="btn" onClick={() => setPanel({ tab: 'calendar' })}>
+          <CalendarDays size={15} /> Calendario
+        </button>
+        <button type="button" className="btn" onClick={() => setPanel({ tab: 'sensors' })}>
+          <Radar size={15} /> Sensores
+        </button>
+        <button type="button" className="btn" onClick={() => setPanel({ tab: 'prediction' })}>
+          <Sparkles size={15} /> Pronóstico
+        </button>
+      </div>
+    </div>
+  );
+}

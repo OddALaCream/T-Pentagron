@@ -51,7 +51,7 @@ export function displayResolution(altitude: number, previous: number, t: { res6:
 }
 
 /** Resolución de marcadores: la más fina cuyo ancho en pantalla supera `minPx`. */
-export function symbolResolution(altitude: number, viewportHeight: number, minPx = 18): number {
+export function symbolResolution(altitude: number, viewportHeight: number, minPx = 30): number {
   const pxPerKm = viewportHeight / (5941 * Math.max(0.01, altitude));
   for (let r = 6; r >= 1; r--) {
     if (EDGE_KM[r] * 2 * pxPerKm >= minPx) return r;
@@ -93,6 +93,10 @@ export function buildPolygons(records: CellActivity[], p: PolygonBuildParams, ca
     if (p.filters.regionScope === 'pilot' && record.regionId !== brand.pilot.regionId) continue;
     const cls = classify(record, p.layer, p.granularity);
     const isSelected = record.h3_id === selectedH3;
+    const isHovered = record.h3_id === p.hover;
+    // Distant overview uses grouped symbols. Fine cells are an inspection layer.
+    if (p.res <= 4 && !isSelected && !isHovered) continue;
+    if (p.layer === 'prediction' && env.dataMode === 'api') continue;
     if (!isSelected) {
       // "Sin detección" no genera polígonos: la retícula H3 (una sola llamada de dibujo)
       // ya muestra la huella observada. Así se ahorran cientos de llamadas por fotograma.
@@ -114,12 +118,16 @@ export function buildPolygons(records: CellActivity[], p: PolygonBuildParams, ca
     if (cls.kind === 'unavailable' && !isSelected) unavailable.push(f);
     else out.push(f);
   }
-  const budget = (p.maxPolygons ?? 1400) - out.length;
-  if (budget > 0) out.push(...unavailable.slice(0, budget));
-  return out;
+  const limit = p.maxPolygons ?? (p.res === 6 ? 220 : 60);
+  const priority = (f: PolygonFeature) => f.state === 'selected' ? 3 : f.state === 'hover' ? 2 : 0;
+  out.sort((a,b) => priority(b)-priority(a) || b.cls.intensity-a.cls.intensity || a.h3.localeCompare(b.h3));
+  const visible = out.slice(0,limit);
+  if (visible.length < limit) visible.push(...unavailable.slice(0,limit-visible.length));
+  return visible;
 }
 
 export interface SymbolBuildParams {
+  maxSymbols?: number;
   layer: DataLayer;
   granularity: Granularity;
   filters: Filters;
@@ -152,6 +160,10 @@ export function buildSymbols(native: CellActivity[], p: SymbolBuildParams): Symb
       g.kind = cls.kind;
       g.intensity = Math.max(g.intensity, cls.intensity);
     }
+  }
+  // Coarsen whole H3 groups rather than sampling detections to meet the visual budget.
+  if (groups.size > (p.maxSymbols ?? 120) && p.symbolRes > 1) {
+    return buildSymbols(native, { ...p, symbolRes: p.symbolRes - 1 });
   }
   const alt = SYMBOL_ALT[p.displayRes] ?? 0.012;
   const out: SymbolDatum[] = [];

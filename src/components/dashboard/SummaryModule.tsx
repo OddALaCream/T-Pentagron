@@ -40,8 +40,9 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
   const metric = layer === 'modis' ? 'modis' : layer === 'viirs' ? 'viirs' : 'index';
   const cur = sum(last7, metric);
   const prev = sum(prev7, metric);
-  const trend = prev === 0 ? (cur > 0 ? 1 : 0) : (cur - prev) / prev;
-  const trendLabel = Math.abs(trend) < 0.1 ? 'estable' : trend > 0 ? 'en aumento' : 'en descenso';
+  const comparable = prev > 0 && prev7.length === 7 && last7.length === 7;
+  const trend = comparable ? (cur - prev) / prev : 0;
+  const trendLabel = !comparable ? 'sin base comparable' : Math.abs(trend) < 0.1 ? 'estable' : trend > 0 ? 'en aumento' : 'en descenso';
   const TrendIcon = Math.abs(trend) < 0.1 ? ArrowRight : trend > 0 ? ArrowUpRight : ArrowDownRight;
 
   // Registro del día con la misma forma que usa el globo, para clasificar igual.
@@ -81,7 +82,9 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
         </div>
       </div>
 
-      <dl className="kv" data-holo-item>
+      <details className="summary-details" data-holo-item>
+      <summary>Ubicación, fecha y procedencia</summary>
+      <dl className="kv">
         <div><dt>Coordenadas</dt><dd className="mono">{center ? formatLatLng(center) : '—'}</dd></div>
         {info.h3 && (
           <div>
@@ -105,6 +108,7 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
         </div>
         <div><dt>Fuente</dt><dd>{env.dataMode === 'api' ? 'NASA FIRMS · Bolivia 2024 · type=0' : 'Datos de demostración (FIRMS simulado)'}</dd></div>
       </dl>
+      </details>
 
       {today?.availability === 'missing' && (
         <Note tone="warn">Sin detecciones registradas este día. Cobertura desconocida; no equivale a «sin actividad».</Note>
@@ -123,7 +127,8 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
         </p>
       )}
 
-      {layer !== 'prediction' && <div data-holo-item>
+      {layer !== 'prediction' && <details className="summary-details" data-holo-item>
+        <summary>Tendencia histórica · últimos 60 días</summary>
         <SectionTitle aside={<span className={`trend trend--${trend > 0.1 ? 'up' : trend < -0.1 ? 'down' : 'flat'}`}><TrendIcon size={14} /> {trendLabel}{Math.abs(trend) >= 0.1 ? ` ${trend > 0 ? '+' : ''}${Math.round(trend * 100)} %` : ''}</span>}>
           Tendencia · últimos 60 días
         </SectionTitle>
@@ -134,7 +139,7 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
           label={`${metric === 'index' ? 'Índice exploratorio' : metric.toUpperCase()} de los últimos 60 días`}
         />
         <p className="muted small">Comparación de los últimos 7 días con los 7 anteriores. {layer === 'harmonized' ? 'Índice exploratorio.' : `Recuentos originales ${layer.toUpperCase()}.`} Sin detecciones registradas no equivale a ausencia de fuego.</p>
-      </div>}
+      </details>}
 
       <div className="action-row" data-holo-item>
         <button type="button" className="btn btn--primary" onClick={() => setTransition('entering')}>

@@ -3,7 +3,6 @@
  * en modelos de dominio. Toleran ausencias: nunca rellenan con valores inventados.
  */
 import { cellToLatLng, getResolution, isValidCell } from 'h3-js';
-import { coverageOf } from '@/lib/geo/aggregate';
 import type {
   AvailabilityFlag, CellActivity, Detection, HarmonizedDaily, ModelInfo, Prediction, Region, SeriesPoint,
   WeatherDaily,

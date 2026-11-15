@@ -40,7 +40,7 @@ export function Legend() {
           })}
         </ul>
       )}
-      {open && <p className="legend__foot">Detección térmica ≠ incendio confirmado</p>}
+      {open && <p className="legend__foot">Vista agrupada: acércate para inspeccionar celdas. Los totales incluyen todas las detecciones. Detección térmica ≠ incendio confirmado.</p>}
     </aside>
   );
 }

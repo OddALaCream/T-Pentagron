@@ -3,8 +3,8 @@
  * Línea temporal interactiva: reproducción diaria o mensual, paso a paso, velocidad,
  * selector de fecha y una pista con el histograma diario de actividad del año.
  */
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { appConfig } from '@/config/app';
 import { brand } from '@/config/brand';
 import { env } from '@/config/env';
@@ -15,14 +15,16 @@ import { useStore } from '@/state/store';
 import { Segmented } from '@/components/ui/primitives';
 
 export function TimelineDock({ compact = false, measure = true }: { compact?: boolean; measure?: boolean }) {
+  const [collapsed, setCollapsed] = useState(true);
+  const historyId = useId();
   // Publica la altura real del dock (puede ocupar dos filas) para que leyenda y paneles
   // no queden debajo.
   const sectionRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const el = sectionRef.current;
     if (!measure || !el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const h = Math.round(entry.borderBoxSize?.[0]?.blockSize ?? el.getBoundingClientRect().height);
+    const ro = new ResizeObserver(() => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
       if (h > 0) document.documentElement.style.setProperty('--dock-h', `${h}px`);
     });
     ro.observe(el);
@@ -101,7 +103,7 @@ export function TimelineDock({ compact = false, measure = true }: { compact?: bo
   };
 
   return (
-    <section ref={sectionRef} className={`timeline ${compact ? 'timeline--compact' : ''}`} aria-label="Línea temporal" data-reveal>
+    <section ref={sectionRef} className={`timeline ${compact ? 'timeline--compact' : ''} ${collapsed ? 'is-collapsed' : ''}`} aria-label="Línea temporal" data-reveal>
       <div className="timeline__controls">
         <button type="button" className="icon-btn" onClick={() => { setPlaying(false); step(-1); }} aria-label={granularity === 'month' ? 'Mes anterior' : 'Día anterior'} title="Anterior (←)">
           <SkipBack size={16} />
@@ -118,7 +120,7 @@ export function TimelineDock({ compact = false, measure = true }: { compact?: bo
           value={String(speed)}
           onChange={(v) => setSpeed(Number(v))}
           options={appConfig.playbackSpeeds.map((s) => ({ value: String(s), label: `${s}×` }))}
-          className="hide-compact"
+          className="timeline__speed"
         />
         <Segmented
           label="Granularidad"
@@ -144,11 +146,14 @@ export function TimelineDock({ compact = false, measure = true }: { compact?: bo
           <span>{year}</span>
           <button type="button" className="icon-btn icon-btn--small" onClick={() => jumpYear(1)} disabled={year >= years[years.length - 1]} aria-label="Año siguiente"><ChevronRight size={15} /></button>
         </div>
-        <button type="button" className="btn btn--ghost hide-compact" onClick={() => { setPlaying(false); setDate(range.end); }} title="Último día con datos">
+        <button type="button" className="btn btn--ghost timeline__latest" onClick={() => { setPlaying(false); setDate(range.end); }} title="Último día con datos">
           Último dato
         </button>
+        <button type="button" className="icon-btn timeline__toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed} aria-controls={historyId} aria-label={collapsed ? 'Mostrar historial y velocidad' : 'Contraer línea temporal'} title={collapsed ? 'Mostrar historial y velocidad' : 'Contraer línea temporal'}>
+          {collapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
       </div>
-
+      <div id={historyId} hidden={collapsed}>
       <div
         ref={trackRef}
         className="timeline__track"
@@ -190,6 +195,7 @@ export function TimelineDock({ compact = false, measure = true }: { compact?: bo
       </div>
       <div className="timeline__caption muted">
         {layer === 'prediction' ? 'Predicción no disponible · sin modelo entrenado' : layer === 'harmonized' ? 'Índice exploratorio diario 0–1 · normalizado por sensor, sin calibración física' : `Detecciones diarias originales ${layer.toUpperCase()}`} · {region?.name ?? '—'} {env.dataMode === 'mock' ? '(demo)' : '· NASA FIRMS 2024'}
+      </div>
       </div>
     </section>
   );

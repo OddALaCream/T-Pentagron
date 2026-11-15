@@ -21,6 +21,8 @@ export function ObservatoryHUD() {
   const view = useStore((s) => s.view);
   const selection = useStore((s) => s.selection);
   const panelOpen = useStore((s) => s.panel.open);
+  const minimized = useStore((s) => s.panel.minimized);
+  const drawer = useStore((s) => s.drawer);
   const setTransition = useStore((s) => s.setTransition);
   const compact = useIsCompact();
   const ref = useRef<HTMLDivElement>(null);
@@ -47,7 +49,7 @@ export function ObservatoryHUD() {
   const hidden = phase !== 'observatory' || view !== 'global';
 
   return (
-    <div ref={ref} className={`hud ${panelOpen && selection ? 'has-inspector' : ''} ${hidden ? 'is-hidden' : ''}`} aria-hidden={hidden}>
+    <div ref={ref} className={`hud ${drawer ? 'has-drawer' : ''} ${panelOpen && !minimized && selection ? 'has-inspector' : ''} ${hidden ? 'is-hidden' : ''}`} aria-hidden={hidden}>
       <TopBar />
       <DrawerHost />
       <Legend />

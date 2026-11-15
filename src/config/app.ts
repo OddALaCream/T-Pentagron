@@ -14,7 +14,7 @@ export const appConfig = {
   playbackBaseMs: 700,
   playbackSpeeds: [0.5, 1, 2, 4] as const,
   /** Umbrales de altitud (radios terrestres) para cambiar la resolución H3 mostrada. */
-  resolutionThresholds: { res6: 0.42, res5: 1.25 },
+  resolutionThresholds: { res6: 0.14, res5: 0.65 },
   /** Periodicidad del escaneo ambiental automático (ms). */
   autoScanEveryMs: 50_000,
 } as const;

@@ -151,6 +151,7 @@ export default function ObservatoryGlobe() {
   const polygons = useMemo(() => {
     if (!native.length) return [];
     const list = buildPolygons(recordsByRes(cam.displayRes), {
+      maxPolygons: cam.displayRes === 6 ? (viewport.width < 900 ? 100 : 220) : (viewport.width < 900 ? 40 : 60),
       layer, granularity, filters, res: cam.displayRes, visibleRegions, selection, hover,
     }, featureCache);
     // La celda seleccionada siempre se dibuja (aunque la resolución mostrada sea otra).
@@ -164,21 +165,19 @@ export default function ObservatoryGlobe() {
       }
     }
     return list;
-  }, [native, recordsByRes, cam.displayRes, layer, granularity, filters, visibleRegions, selection, hover, featureCache]);
+  }, [native, recordsByRes, cam.displayRes, layer, granularity, filters, visibleRegions, selection, hover, featureCache, viewport.width]);
 
   /* ---------------- Marcadores, retícula y regiones ---------------- */
   const symbols = useMemo(
-    () => buildSymbols(native, { layer, granularity, filters, symbolRes: cam.symbolRes, displayRes: cam.displayRes }),
-    [native, layer, granularity, filters, cam.symbolRes, cam.displayRes],
+    () => buildSymbols(native, { layer, granularity, filters, symbolRes: cam.symbolRes, displayRes: cam.displayRes, maxSymbols: viewport.width < 900 ? 72 : 120 }),
+    [native, layer, granularity, filters, cam.symbolRes, cam.displayRes, viewport.width],
   );
   const glances = useMemo(() => regionGlances(native, layer, granularity), [native, layer, granularity]);
 
   const gridCells = useMemo(() => {
     if (!settings.showGrid) return [];
-    return recordsByRes(cam.displayRes)
-      .filter((r) => !visibleRegions || visibleRegions.has(r.regionId))
-      .map((r) => r.h3_id);
-  }, [recordsByRes, cam.displayRes, visibleRegions, settings.showGrid]);
+    return polygons.map((p) => p.h3);
+  }, [polygons, settings.showGrid]);
 
   /* ---------------- Anillos (selección + pulsos de escaneo) ---------------- */
   const [pulses, setPulses] = useState<RingDatum[]>([]);
@@ -378,7 +377,7 @@ export default function ObservatoryGlobe() {
   }, [ready, regions]);
 
   useEffect(() => {
-    const size = cam.displayRes === 6 ? 8 : cam.displayRes === 5 ? 9 : 10;
+    const size = cam.displayRes === 6 ? 6 : cam.displayRes === 5 ? 7 : 8;
     engineRef.current?.setSymbols(symbols, size);
   }, [ready, symbols, viewport.width, cam.displayRes]);
 
@@ -583,6 +582,7 @@ export default function ObservatoryGlobe() {
         }}
         showPointerCursor
       />
+      {phase === 'observatory' && view === 'global' && <span className="map-density-note">Vista agrupada · {polygons.length ? `${polygons.length} celdas destacadas` : 'acércate para inspeccionar'} · totales completos en los paneles</span>}
       {env.enableGlobeTiles && cam.altitude < 0.7 && <span className="globe-attribution">Mapa de referencia: Esri World Imagery · Esri, Maxar, Earthstar Geographics y comunidad GIS. No corresponde a la fecha seleccionada.</span>}
     </div>
   );

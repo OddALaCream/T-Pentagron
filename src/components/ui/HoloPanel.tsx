@@ -74,7 +74,7 @@ export function HoloPanel({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const n = 90;
+    const n = 18;
     const parts = Array.from({ length: n }, () => ({
       tx: to.left + Math.random() * to.width,
       ty: to.top + Math.random() * to.height,
@@ -112,7 +112,7 @@ export function HoloPanel({
     const surface = surfaceRef.current;
     if (!root || !surface) return;
     tlRef.current?.kill();
-    const reduced = isReducedMotion();
+    const reduced = isReducedMotion() || window.matchMedia('(max-width: 899px)').matches;
     const items = root.querySelectorAll('[data-holo-item]');
     if (reduced) {
       tlRef.current = gsap.timeline().fromTo(root, { opacity: 0 }, { opacity: 1, duration: 0.25 });
@@ -126,8 +126,8 @@ export function HoloPanel({
     const tl = gsap.timeline();
     tl.set(root, { opacity: 1 });
     if (frame) tl.fromTo(frame, { strokeDasharray: length, strokeDashoffset: length }, { strokeDashoffset: 0, duration: 0.7, ease: 'power2.inOut' }, 0.18);
-    tl.fromTo(surface, { clipPath: 'inset(48% 0% 48% 0%)', opacity: 0.2, filter: 'blur(6px)' }, { clipPath: 'inset(0% 0% 0% 0%)', opacity: 1, filter: 'blur(0px)', duration: 0.6, ease: 'expo.out' }, 0.38);
-    tl.fromTo(items, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.045, ease: 'power2.out' }, 0.62);
+    tl.fromTo(surface, { opacity: 0.5, y: 8 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' }, 0);
+    tl.fromTo(items, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.2, stagger: 0.015, ease: 'power2.out' }, 0.1);
     tl.add(() => {
       surface.style.clipPath = '';
       surface.style.filter = '';
@@ -183,8 +183,8 @@ export function HoloPanel({
         const cy = r.top + r.height / 2;
         const dx = Math.max(-1, Math.min(1, (e.clientX - cx) / (r.width * 1.2)));
         const dy = Math.max(-1, Math.min(1, (e.clientY - cy) / (r.height * 1.2)));
-        root.style.setProperty('--tilt-x', `${(-dy * 1.6).toFixed(2)}deg`);
-        root.style.setProperty('--tilt-y', `${(dx * 2.2).toFixed(2)}deg`);
+        root.style.setProperty('--tilt-x', `${(-dy * 0.25).toFixed(2)}deg`);
+        root.style.setProperty('--tilt-y', `${(dx * 0.3).toFixed(2)}deg`);
         root.style.setProperty('--sheen-x', `${((e.clientX - r.left) / r.width) * 100}%`);
         root.style.setProperty('--sheen-y', `${((e.clientY - r.top) / r.height) * 100}%`);
       });
@@ -231,12 +231,12 @@ export function HoloPanel({
               </div>
               <div className="holo__controls">
                 {onMinimize && (
-                  <button type="button" className="icon-btn icon-btn--ghost" onClick={() => onMinimize(!minimized)} aria-label={minimized ? 'Restaurar panel' : 'Minimizar panel'} title={minimized ? 'Restaurar' : 'Minimizar'}>
+                  <button type="button" className="icon-btn icon-btn--ghost" onClick={() => onMinimize(!minimized)} aria-expanded={!minimized} aria-label={minimized ? 'Restaurar panel' : 'Minimizar panel'} title={minimized ? 'Restaurar' : 'Minimizar'}>
                     {minimized ? <ChevronUp size={16} /> : <Minus size={16} />}
                   </button>
                 )}
                 {onExpand && !minimized && (
-                  <button type="button" className="icon-btn icon-btn--ghost hide-compact" onClick={() => onExpand(!expanded)} aria-label={expanded ? 'Reducir panel' : 'Expandir panel'} title={expanded ? 'Reducir' : 'Expandir'}>
+                  <button type="button" className="icon-btn icon-btn--ghost" onClick={() => onExpand(!expanded)} aria-label={expanded ? 'Reducir panel' : 'Expandir panel'} title={expanded ? 'Reducir' : 'Expandir'}>
                     {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
                   </button>
                 )}

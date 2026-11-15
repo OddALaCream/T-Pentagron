@@ -119,7 +119,7 @@ export const defaultSettings: Settings = {
   scanWave: true,
   ambient: true,
   clouds: true,
-  bloom: true,
+  bloom: false,
   autoRotate: false,
   reducedMotion: 'auto',
   lighting: 'cinematic',

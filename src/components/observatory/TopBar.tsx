@@ -8,10 +8,21 @@ import { formatDate, formatMonth } from '@/lib/time/dates';
 import { useStore } from '@/state/store';
 import { DemoBadge, IconButton, Segmented } from '@/components/ui/primitives';
 import { BrandMark } from './BrandMark';
+import { useEffect, useRef } from 'react';
 
 const nf = new Intl.NumberFormat('es');
 
 export function TopBar() {
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--top-h', `${Math.ceil(header.getBoundingClientRect().height)}px`);
+    });
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   const layer = useStore((s) => s.layer);
   const setLayer = useStore((s) => s.setLayer);
   const drawer = useStore((s) => s.drawer);
@@ -27,7 +38,7 @@ export function TopBar() {
   const active = LAYERS.find((l) => l.id === layer)!;
 
   return (
-    <header className="topbar" data-reveal>
+    <header ref={headerRef} className="topbar" data-reveal>
       <div className="topbar__brand">
         <BrandMark />
         <div className="topbar__names">

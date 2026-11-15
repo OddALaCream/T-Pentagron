@@ -233,10 +233,10 @@ void main() {
     glowAmt = 0.08;
   } else if (shape == 1) {     // media · triángulo · respiración lenta
     d = sdTriangle(p * 1.05 + vec2(0.0, 0.06), 0.55);
-    pulse = 0.82 + 0.18 * sin(t * 2.4 + vPhase * 6.283);
+    pulse = 0.97 + 0.03 * sin(t * 1.4 + vPhase * 6.283);
   } else if (shape == 2) {     // alta · diamante · pulso rápido
     d = (abs(p.x) + abs(p.y)) * 0.7071 - 0.42;
-    pulse = 0.72 + 0.28 * pow(0.5 + 0.5 * sin(t * 6.2 + vPhase * 6.283), 2.0);
+    pulse = 0.96 + 0.04 * sin(t * 2.0 + vPhase * 6.283);
     glowAmt = 0.18;
   } else if (shape == 3) {     // pronóstico · hexágono · rotación pausada
     d = sdHexagon(rot(t * 0.35 + vPhase) * p, 0.44);
@@ -262,9 +262,9 @@ void main() {
   float fill = 1.0 - smoothstep(-aa, aa, d);
   float rim = 1.0 - smoothstep(0.0, 0.09, abs(d + 0.05));
   float glow = exp(-max(d, 0.0) * 5.5) * glowAmt * (0.6 + vIntensity * 0.6);
-  vec3 base = vColor * (0.72 + 0.28 * vIntensity);
+  vec3 base = mix(vColor, vec3(0.52, 0.61, 0.7), 0.3) * (0.72 + 0.2 * vIntensity);
   vec3 col = base * fill * pulse * 0.8 + vColor * rim * fill * 0.08 + vColor * glow * pulse * 0.25;
-  float alpha = max(fill * (shape == 5 ? 0.85 : 0.95), glow * 0.65 * pulse);
+  float alpha = max(fill * 0.75, glow * 0.2 * pulse);
   if (vSelected > 0.5) {
     float sel = 1.0 - smoothstep(0.0, 0.06, abs(length(p) - 0.9));
     col += vec3(0.9, 0.97, 1.0) * sel;
@@ -384,14 +384,14 @@ export class CapMaterials {
     if (!m) {
       const meta = CATEGORY[kind];
       const baseOpacity =
-        kind === 'none' ? 0.03 : kind === 'unavailable' ? 0.08 : kind === 'forecast' ? 0.2 : kind === 'low' ? 0.17 : 0.3;
+        kind === 'none' ? 0.02 : kind === 'unavailable' ? 0.04 : kind === 'forecast' ? 0.12 : kind === 'low' ? 0.06 : 0.13;
       m = new THREE.ShaderMaterial({
         uniforms: {
           ...this.scan,
           ...countryUniforms(),
           uColor: { value: new THREE.Color(meta.color) },
           uOpacity: { value: faint ? baseOpacity * 0.45 : state === 'selected' ? Math.min(1, baseOpacity + 0.2) : baseOpacity },
-          uPulse: { value: kind === 'high' ? 5.5 : kind === 'medium' ? 2.2 : 0 },
+          uPulse: { value: 0 },
           uHighlight: { value: state === 'selected' ? 1 : state === 'hover' ? 0.6 : 0 },
           uHatch: { value: kind === 'unavailable' ? 1 : 0 },
         },

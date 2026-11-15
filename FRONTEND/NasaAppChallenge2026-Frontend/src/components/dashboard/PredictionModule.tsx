@@ -1,6 +1,6 @@
 'use client';
 import { AlertTriangle, Layers } from 'lucide-react';
-import { useModelInfo, usePredictionDetail } from '@/hooks/data';
+import { useModelInfo, usePredictionAvailable, usePredictionDetail } from '@/hooks/data';
 import { formatDate } from '@/lib/time/dates';
 import { CATEGORY, probabilityBand } from '@/lib/science/categories';
 import { shortH3 } from '@/lib/geo/h3';
@@ -19,11 +19,19 @@ export function PredictionModule({ info }: { info: TargetInfo }) {
   const select = useStore((s) => s.select);
   const { data: detail, isFetching } = usePredictionDetail(info.target, date);
   const { data: model } = useModelInfo();
+  const available = usePredictionAvailable();
   const p = detail?.probability ?? null;
   const band = p === null ? null : probabilityBand(p);
   const isRegion = info.kind === 'region' || (detail?.distribution?.length ?? 0) > 0;
 
-  if (env.dataMode === 'api') return <div className="module"><Note>Predicción no disponible: todavía no existe un modelo entrenado.</Note></div>;
+  if (env.dataMode === 'api' && model && !available) return <div className="module"><Note>Predicción no disponible: el backend no tiene un modelo entrenado.</Note></div>;
+  if (env.dataMode === 'api' && detail && p === null && !isFetching) {
+    return (
+      <div className="module">
+        <Note>Sin predicción para este objetivo: el modelo solo cubre la zona piloto (Chiquitanía, Santa Cruz).</Note>
+      </div>
+    );
+  }
   if (!detail && isFetching) {
     return (
       <div className="module">
@@ -58,7 +66,7 @@ export function PredictionModule({ info }: { info: TargetInfo }) {
       </div>
 
       <div className={isFetching ? 'is-loading' : ''} data-holo-item>
-        <SectionTitle aside={<span className="muted small">aporte al logit</span>}>Variables utilizadas</SectionTitle>
+        <SectionTitle aside={<span className="muted small" title="Aporte local de cada variable a la probabilidad del Random Forest antes de la calibración isotónica">{env.dataMode === 'api' ? 'aporte a la probabilidad' : 'aporte al logit'}</span>}>Variables utilizadas</SectionTitle>
         {detail?.features.length ? (
           <ContributionBars
             items={detail.features.map((f) => ({
@@ -68,7 +76,7 @@ export function PredictionModule({ info }: { info: TargetInfo }) {
             }))}
           />
         ) : (
-          <p className="muted small">El backend no devolvió variables para este objetivo.</p>
+          <p className="muted small">{env.dataMode === 'api' ? 'Sin explicación por variable: solo se calcula para celdas con probabilidad ≥ 5 % o entre las 30 más altas del día.' : 'El backend no devolvió variables para este objetivo.'}</p>
         )}
         {isRegion && <p className="muted small">En regiones y celdas agregadas se muestran valores medios de una muestra de celdas.</p>}
       </div>
@@ -98,7 +106,7 @@ export function PredictionModule({ info }: { info: TargetInfo }) {
       )}
 
       <div data-holo-item>
-        <SectionTitle aside={<span className="badge badge--pending">pendiente</span>}>Métricas de validación</SectionTitle>
+        <SectionTitle aside={<span className="badge badge--pending">{model?.status === 'experimental' ? 'prueba 2025' : 'pendiente'}</span>}>Métricas de validación</SectionTitle>
         <table className="data-table">
           <thead>
             <tr><th>Métrica</th><th>Modelo</th><th>Baseline estacional</th></tr>
@@ -117,6 +125,9 @@ export function PredictionModule({ info }: { info: TargetInfo }) {
           {model?.notes[0] ?? 'Las métricas se completarán con la evaluación cronológica.'} Entrenamiento {model?.trainingPeriod ?? '—'},
           validación {model?.validationPeriod ?? '—'}, prueba {model?.testPeriod ?? '—'}.
         </Note>
+        {env.dataMode === 'api' && (model?.notes.length ?? 0) > 1 && (
+          <ul className="muted small">{model!.notes.slice(1).map((n) => <li key={n}>{n}</li>)}</ul>
+        )}
       </div>
 
       {layer !== 'prediction' && (

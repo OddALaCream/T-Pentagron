@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Pause, Play, SkipBac
 import { appConfig } from '@/config/app';
 import { brand } from '@/config/brand';
 import { env } from '@/config/env';
-import { useRegionMap, useSeries } from '@/hooks/data';
+import { usePredictionAvailable, useRegionMap, useSeries } from '@/hooks/data';
 import { dayIndexFromISO, formatDate, formatMonth, isoFromDayIndex, monthShort, yearOf } from '@/lib/time/dates';
 import { CATEGORY, kindFromIndex, SENSOR_COLORS } from '@/lib/science/categories';
 import { useStore } from '@/state/store';
@@ -36,6 +36,7 @@ export function TimelineDock({ compact = false, measure = true }: { compact?: bo
   const speed = useStore((s) => s.speed);
   const granularity = useStore((s) => s.granularity);
   const layer = useStore((s) => s.layer);
+  const predictionAvailable = usePredictionAvailable();
   const selection = useStore((s) => s.selection);
   const setDate = useStore((s) => s.setDate);
   const step = useStore((s) => s.step);
@@ -194,7 +195,7 @@ export function TimelineDock({ compact = false, measure = true }: { compact?: bo
         </div>
       </div>
       <div className="timeline__caption muted">
-        {layer === 'prediction' ? 'Predicción no disponible · sin modelo entrenado' : layer === 'harmonized' ? 'Índice exploratorio diario 0–1 · normalizado por sensor, sin calibración física' : `Detecciones diarias originales ${layer.toUpperCase()}`} · {region?.name ?? '—'} {env.dataMode === 'mock' ? '(demo)' : '· NASA FIRMS 2024'}
+        {layer === 'prediction' ? (predictionAvailable ? 'Probabilidad experimental de detección t+1 · Modelo B FireSight · zona piloto Chiquitanía' : 'Predicción no disponible · sin modelo entrenado') : layer === 'harmonized' ? 'Índice exploratorio diario 0–1 · normalizado por sensor, sin calibración física' : `Detecciones diarias originales ${layer.toUpperCase()}`} · {region?.name ?? '—'} {env.dataMode === 'mock' ? '(demo)' : '· NASA FIRMS 2024'}
       </div>
       </div>
     </section>

@@ -132,7 +132,7 @@ export function adaptModel(dto: Dict): ModelInfo {
   });
   return {
     model_version: str(dto.model_version, 'desconocida'),
-    status: dto.status === 'validated' ? 'validated' : 'experimental',
+    status: dto.status === 'validated' ? 'validated' : dto.status === 'unavailable' ? 'unavailable' : 'experimental',
     algorithm: str(dto.algorithm, '—'),
     target: str(dto.target, 'Actividad térmica detectada al día siguiente'),
     trainingPeriod: str(dto.training_period, '—'),

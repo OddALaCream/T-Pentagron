@@ -96,7 +96,8 @@ export function buildPolygons(records: CellActivity[], p: PolygonBuildParams, ca
     const isHovered = record.h3_id === p.hover;
     // Distant overview uses grouped symbols. Fine cells are an inspection layer.
     if (p.res <= 4 && !isSelected && !isHovered) continue;
-    if (p.layer === 'prediction' && env.dataMode === 'api') continue;
+    // En modo API solo se dibujan celdas con predicción (zona piloto del modelo); sin modelo, ninguna.
+    if (p.layer === 'prediction' && env.dataMode === 'api' && record.probability == null && !isSelected) continue;
     if (!isSelected) {
       // "Sin detección" no genera polígonos: la retícula H3 (una sola llamada de dibujo)
       // ya muestra la huella observada. Así se ahorran cientos de llamadas por fotograma.

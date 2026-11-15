@@ -70,8 +70,10 @@ class ArchiveIntegration(unittest.TestCase):
         self.assertEqual(self.client.get('/detections?date=2024-09-06&h3_id=invalid').status_code,422)
         for endpoint in ['/health','/meta','/regions','/regions/bolivia/cells','/docs','/openapi.json','/model']:
             self.assertEqual(self.client.get(endpoint).status_code,200,endpoint)
-        self.assertEqual(self.client.get('/predictions').json()['status'],'unavailable')
-        self.assertIsNone(self.client.get('/predictions/detail').json()['probability'])
+        # Predicción: ver backend/test_predictions.py. Aquí solo el contrato básico.
+        self.assertEqual(self.client.get('/predictions').status_code,422)  # date es obligatorio
+        status = self.client.get('/predictions?date=2024-09-06').json()['status']
+        self.assertIn(status,{'experimental','unavailable'})
         self.assertEqual(self.client.get('/health',headers={'Origin':'http://localhost:3000'}).headers['access-control-allow-origin'],'http://localhost:3000')
 
 if __name__ == '__main__':

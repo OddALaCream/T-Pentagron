@@ -4,16 +4,22 @@ from pathlib import Path
 from typing import Literal
 from functools import lru_cache
 import json
+import os
 import duckdb
 import h3
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from backend.geography import FEATURE, BOLIVIA, inside_bolivia
+from backend import predictions as forecast
 
 DATA = Path(__file__).resolve().parents[1] / 'data/processed'
 app = FastAPI(title='Bolivia FIRMS 2024', version='0.1.0')
-app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:3000','http://127.0.0.1:3000'],
+# CORS_ORIGINS='http://localhost:3010,...' permite servir el frontend en otro puerto
+ORIGINS = os.environ.get('CORS_ORIGINS','http://localhost:3000,http://127.0.0.1:3000').split(',')
+app.add_middleware(CORSMiddleware, allow_origins=ORIGINS,
                    allow_methods=['GET'], allow_headers=['*'])
+app.add_middleware(GZipMiddleware, minimum_size=2000)  # /predictions devuelve ~3.600 celdas
 
 def query(sql, params=()):
     if not (DATA/'manifest.json').exists():
@@ -62,7 +68,8 @@ def meta():
                 'formula':'I_s=min(1,log(1+n_s)/log(1+q95_s)); I=mean(I_s for sensors with detections)',
                 'baseline':'2024 positive type=0 H3-6 daily counts per instrument family; linear 95th percentile',
                 'aggregation':'Month and series: mean daily cell indices over cells/days with detections. Parent H3: mean child indices.',
-                'notes':'Exploratory relative activity, not physical calibration, fire count, burned area or coverage. Confidence filters keep the fixed baseline.'}}
+                'notes':'Exploratory relative activity, not physical calibration, fire count, burned area or coverage. Confidence filters keep the fixed baseline.'},
+            'prediction':forecast.coverage() or {'status':'unavailable'}}
 
 @app.get('/regions')
 def regions():
@@ -188,18 +195,22 @@ def detections(response: Response, date: Date, h3_id: str | None=None,
     return rows
 
 @app.get('/predictions')
-def predictions():
-    return {'status':'unavailable','reason':'No existe un modelo entrenado','predictions':[]}
+def predictions(date: Date, region: str | None=None):
+    """Probabilidad experimental t+1 (Modelo B FireSight). Solo cubre la zona piloto del modelo."""
+    validate_date(date); validate_region(region)
+    return forecast.predictions(date)
 
 @app.get('/predictions/detail')
-def prediction_detail():
-    return {'status':'unavailable','reason':'No existe un modelo entrenado','probability':None,
-            'model_version':'No disponible','features':[]}
+def prediction_detail(date: Date, h3_id: str | None=None, region: str | None=None):
+    validate_date(date); validate_cell(h3_id); validate_region(region)
+    result = forecast.detail(date, h3_id)
+    if result is None:
+        raise HTTPException(404, 'Sin predicción: el objetivo está fuera de la zona piloto del modelo (Chiquitanía)')
+    return result
 
 @app.get('/model')
 def model():
-    return {'status':'unavailable','model_version':'No disponible','algorithm':'Sin modelo entrenado',
-            'metrics':{},'baseline_metrics':{},'features':[], 'notes':['No existe un modelo entrenado. Predicción no disponible.']}
+    return forecast.model_info()
 
 @app.get('/weather')
 @app.get('/news')

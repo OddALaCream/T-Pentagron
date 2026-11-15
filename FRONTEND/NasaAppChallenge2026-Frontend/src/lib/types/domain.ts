@@ -197,7 +197,8 @@ export interface ModelMetrics {
 
 export interface ModelInfo {
   model_version: string;
-  status: 'demo' | 'validated' | 'experimental';
+  /** 'unavailable': el backend no tiene un modelo entrenado (la capa de predicción se desactiva). */
+  status: 'demo' | 'validated' | 'experimental' | 'unavailable';
   algorithm: string;
   target: string;
   trainingPeriod: string;

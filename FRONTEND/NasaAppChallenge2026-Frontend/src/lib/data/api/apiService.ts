@@ -76,6 +76,20 @@ class ApiDataService implements DataService {
       if (record) native.push(record);
     }
     const { totals, byRegion } = computeTotals(native);
+    // La predicción cubre celdas sin detecciones ese día: se agregan como registros sin observación
+    // (después de los totales, para no alterar los conteos ni la disponibilidad).
+    if (predictions.length) {
+      const seen = new Set(native.map((r) => r.h3_id));
+      const regionId = q.regionIds?.[0] ?? (await this.getRegions())[0]?.id ?? 'desconocida';
+      for (const p of predictions) {
+        if (seen.has(p.h3_id)) continue;
+        const record = toCellActivity({
+          h3_id: p.h3_id, date: q.date, modis_detected: null, viirs_detected: null, activity_index: null,
+          availability_flag: 'missing',
+        }, regionId, p.probability);
+        if (record) native.push(record);
+      }
+    }
     const scale = q.granularity === 'month' ? MONTHLY_INDEX_SCALE : DAILY_INDEX_SCALE;
     const nativeRes = native[0]?.resolution ?? 6;
     const records = q.resolution >= nativeRes ? native : aggregateRecords(native, q.resolution, scale, cellToParent);

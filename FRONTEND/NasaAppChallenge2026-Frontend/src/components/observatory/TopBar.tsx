@@ -2,7 +2,7 @@
 import { BookOpen, Globe2, Keyboard, Settings2, SlidersHorizontal } from 'lucide-react';
 import { brand } from '@/config/brand';
 import { env } from '@/config/env';
-import { useGlobeSnapshot } from '@/hooks/data';
+import { useGlobeSnapshot, usePredictionAvailable } from '@/hooks/data';
 import { LAYERS } from '@/lib/science/categories';
 import { formatDate, formatMonth } from '@/lib/time/dates';
 import { useStore } from '@/state/store';
@@ -24,6 +24,7 @@ export function TopBar() {
     return () => observer.disconnect();
   }, []);
   const layer = useStore((s) => s.layer);
+  const predictionAvailable = usePredictionAvailable();
   const setLayer = useStore((s) => s.setLayer);
   const drawer = useStore((s) => s.drawer);
   const toggleDrawer = useStore((s) => s.toggleDrawer);
@@ -69,7 +70,7 @@ export function TopBar() {
         <div className={`telemetry ${isFetching ? 'is-updating' : ''}`} aria-live="polite">
           <span className="telemetry__date">{granularity === 'month' ? formatMonth(date) : formatDate(date)}</span>
           {error && <span role="alert">API no disponible: {error.message}</span>}
-          {env.dataMode === 'api' && layer === 'prediction' && <span role="status">Predicción no disponible: sin modelo entrenado</span>}
+          {env.dataMode === 'api' && layer === 'prediction' && <span role="status">{predictionAvailable ? 'Probabilidad experimental t+1 · solo zona piloto Chiquitanía' : 'Predicción no disponible: sin modelo entrenado'}</span>}
           {t && layer !== 'prediction' && (
             <>
               {layer !== 'modis' && <span><b>{nf.format(t.viirs)}</b> det. VIIRS</span>}

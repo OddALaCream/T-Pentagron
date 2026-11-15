@@ -1,19 +1,23 @@
 /**
- * Escena de introducción (renderizador propio, independiente del globo).
+ * Introducción de T-PENTAGRON (renderizador propio, independiente del globo).
  *
- * Historia sin texto: espacio en calma → una luz revela a la estrella → despierta →
- * se coloca el visor → mira alrededor y descubre la Tierra → se orienta y viaja con la
- * cámara → el planeta crece con su atmósfera → primer pulso de observación → relevo
- * al observatorio con el mismo encuadre (transición continua).
+ * Un solo plano continuo:
+ *  A · Encuentro: un astronauta, de espaldas, contempla la Tierra por una escotilla.
+ *  B · Transición: la cámara avanza por encima de su hombro y cruza la escotilla.
+ *  C · Revelación: el planeta crece hasta el encuadre orbital del observatorio.
+ *  D · Activación: aparece la identidad y el observatorio toma el relevo con el mismo
+ *      encuadre (el globo real ya está preparado debajo), sin cortes a negro.
+ *
+ * La cabina está colocada en el mundo del globo, sobre la línea de visión del encuadre
+ * inicial: la Tierra que se ve por la ventana es la misma que se ve al final.
  */
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { appConfig } from '@/config/app';
 import { createAtmosphere, createClouds, createEarthMaterial, type CloudLayer, type EarthMaterialHandle } from './earth';
 import { createDust, createStarfield, type Dust, type Starfield } from './space';
-import { createGuardianStar, type GuardianStar } from './guardianStar';
 import { createScan, GLOBE_RADIUS, polarToCartesian, type ScanController } from './dataLayers';
-import { perchFor } from './perch';
+import { createAstronaut, type AstronautRig } from './astronaut';
 
 export interface IntroCallbacks {
   /** Momento de reanudar el render del observatorio (antes del relevo). */
@@ -22,9 +26,14 @@ export interface IntroCallbacks {
   onHandoff: () => void;
   /** La capa de intro terminó de desvanecerse. */
   onDone: () => void;
-  /** Opacidad de la marca (texto DOM). */
+  /** Opacidad de la identidad (texto DOM). */
   onWordmark?: (opacity: number) => void;
+  /** Frase breve del asistente (null = ocultar). */
+  onCaption?: (text: string | null) => void;
 }
+
+/** Metros de cabina → unidades del mundo del globo (radio terrestre = 100). */
+const K = 14;
 
 export class IntroScene {
   private renderer: THREE.WebGLRenderer;
@@ -37,7 +46,8 @@ export class IntroScene {
   private atmosphere: THREE.Mesh;
   private clouds: CloudLayer;
   private scan: ScanController;
-  private star: GuardianStar;
+  private rig: AstronautRig;
+  private cabin = new THREE.Group();
   private timeline: gsap.core.Timeline | null = null;
   private frame = 0;
   private lastTime = 0;
@@ -46,11 +56,10 @@ export class IntroScene {
   private handedOff = false;
   private finished = false;
   private watchdog: number | undefined;
-  private params = { stars: 0, travel: 0, lookMix: 0, starPos: 0, fade: 1, earth: 0 };
+  private params = { travel: 0, fade: 1, reveal: 0 };
   private path: THREE.CatmullRomCurve3;
   private finalPos: THREE.Vector3;
-  private startLook: THREE.Vector3;
-  private heroPos = new THREE.Vector3(0, -0.15, -9);
+  private basis = new THREE.Matrix4();
 
   constructor(
     container: HTMLElement,
@@ -89,29 +98,39 @@ export class IntroScene {
     this.scan = createScan();
     this.scene.add(this.scan.mesh);
 
-    this.scene.add(new THREE.AmbientLight(0xcccccc, Math.PI * 0.6));
-    const key = new THREE.DirectionalLight(0xffffff, 0.6 * Math.PI);
-    key.position.set(-1, 1, 1);
-    this.scene.add(key);
-
-    this.star = createGuardianStar({ quality: q });
-    Object.assign(this.star.state, { presence: 0, awake: 0, visor: 0, hud: 0 });
-    this.camera.add(this.star.root);
-
-    // Trayectoria de cámara: lejos → aproximación → encuadre final del observatorio.
+    // Cabina y astronauta, alineados con el encuadre inicial del observatorio.
     const v = appConfig.initialView;
     this.finalPos = polarToCartesian(v.lat, v.lng, v.altitude);
-    const f = this.finalPos.clone().normalize();
-    const r = new THREE.Vector3(0, 1, 0).cross(f).normalize();
-    const u = f.clone().cross(r).normalize();
-    const start = f.clone().multiplyScalar(5600).addScaledVector(r, -1100).addScaledVector(u, 320);
-    const mid = f.clone().multiplyScalar(1500).addScaledVector(r, -420).addScaledVector(u, 140);
-    this.path = new THREE.CatmullRomCurve3([start, mid, this.finalPos.clone()], false, 'centripetal');
-    // Al principio mira hacia otro lado (la Tierra queda fuera de cuadro, a la derecha).
-    const toEarth = start.clone().negate().normalize();
-    this.startLook = toEarth.applyAxisAngle(u, 0.62).multiplyScalar(1000).add(start);
+    const z = this.finalPos.clone().normalize();
+    const x = new THREE.Vector3(0, 1, 0).cross(z).normalize();
+    const y = z.clone().cross(x).normalize();
+    this.basis.makeBasis(x, y, z);
+    // La escotilla queda 0,8 m "detrás" del encuadre final: al cruzarla se llega a él.
+    const windowCenter = this.finalPos.clone().addScaledVector(z, 0.8 * K);
+    this.cabin.matrixAutoUpdate = false;
+    this.cabin.matrix.copy(this.basis).scale(new THREE.Vector3(K, K, K)).setPosition(windowCenter);
+    this.rig = createAstronaut();
+    this.cabin.add(this.rig.group);
+    this.scene.add(this.cabin);
+
+    // Trayectoria en metros de cabina (luego al mundo): detrás del astronauta → sobre su
+    // hombro derecho → a través de la escotilla → encuadre orbital.
+    const local = [
+      new THREE.Vector3(0, 0.12, 5.4),
+      new THREE.Vector3(0.22, 0.12, 4.7),
+      new THREE.Vector3(1.3, 0.55, 1.5),
+      new THREE.Vector3(0.35, 0.18, -0.45),
+      new THREE.Vector3(0, 0, -0.8),
+    ];
+    this.path = new THREE.CatmullRomCurve3(local.map((p) => this.toWorld(p)), false, 'centripetal');
 
     window.addEventListener('resize', this.onResize);
+  }
+
+  private toWorld(p: THREE.Vector3): THREE.Vector3 {
+    return p.clone().multiplyScalar(K).applyMatrix4(new THREE.Matrix4().extractRotation(this.basis)).add(
+      this.finalPos.clone().addScaledVector(this.finalPos.clone().normalize(), 0.8 * K),
+    );
   }
 
   private onResize = () => {
@@ -119,17 +138,6 @@ export class IntroScene {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
   };
-
-  private perchPosition(): { pos: THREE.Vector3; scale: number } {
-    const perch = perchFor(window.innerWidth, window.innerHeight);
-    const tanH = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
-    const nx = perch.x * 2 - 1;
-    const ny = -(perch.y * 2 - 1);
-    const dir = new THREE.Vector3(nx * tanH * this.camera.aspect, ny * tanH, -1).normalize();
-    const surface = appConfig.initialView.altitude * GLOBE_RADIUS;
-    const d = Math.min(30, surface * 0.42);
-    return { pos: dir.multiplyScalar(d / -dir.z), scale: d * perch.scale };
-  }
 
   /**
    * Compila los shaders en paralelo (KHR_parallel_shader_compile) antes de empezar,
@@ -140,7 +148,6 @@ export class IntroScene {
     const begin = () => {
       if (begun || this.finished) return;
       begun = true;
-      this.compiled = true;
       this.lastTime = performance.now();
       this.begin();
       this.loop();
@@ -149,63 +156,38 @@ export class IntroScene {
     this.renderer.compileAsync(this.scene, this.camera).then(begin, begin);
   }
 
-  private compiled = false;
-
   private begin() {
     const p = this.params;
-    const s = this.star.state;
     const cb = this.options.callbacks;
     const tl = gsap.timeline();
     this.timeline = tl;
     const handoff = () => this.handoff();
 
     if (this.options.reduced || this.options.quality === 'low') {
-      // Versión simplificada: sin viaje de cámara ni movimientos amplios.
-      Object.assign(p, { travel: 1, lookMix: 1, starPos: 1, earth: 1 });
-      Object.assign(s, { presence: 0, awake: 1, visor: 1, hud: 1, flex: 0.2 });
-      this.star.lookAtWorld(new THREE.Vector3());
-      tl.call(() => cb.onPrepare(), [], 0.1);
-      tl.to(p, { stars: 1, duration: 0.8, ease: 'power1.out' }, 0);
-      tl.to(s, { presence: 1, duration: 0.9, ease: 'power2.out' }, 0.3);
-      tl.call(() => cb.onWordmark?.(1), [], 0.6);
-      tl.call(() => this.star.react('scan'), [], 1.5);
-      tl.call(() => cb.onWordmark?.(0), [], 2.1);
-      tl.call(handoff, [], 2.2);
+      // Versión sobria: el encuentro con el astronauta y un fundido al observatorio.
+      Object.assign(p, { travel: 0.04, reveal: 1 });
+      tl.call(() => cb.onCaption?.('Mira nuestro planeta.'), [], 0.3);
+      tl.call(() => cb.onPrepare(), [], 1.4);
+      tl.call(() => { cb.onCaption?.(null); cb.onWordmark?.(1); }, [], 1.8);
+      tl.call(() => cb.onWordmark?.(0), [], 3.0);
+      tl.call(handoff, [], 3.1);
     } else {
-      Object.assign(s, { presence: 0, awake: 0, visor: 0, hud: 0, flex: 0.15 });
-      this.star.setLookAngles(-0.15, 0.12);
-      // 1 · Espacio en calma.
-      tl.to(p, { stars: 1, duration: 1.8, ease: 'power1.out' }, 0);
-      // 2 · Una luz revela a la estrella (dormida).
-      tl.to(s, { presence: 1, awake: 0.14, duration: 1.5, ease: 'power2.out' }, 0.9);
-      // 3 · Despierta: calor, estiramiento, puntas activas.
-      tl.to(s, { awake: 1, flex: 0.55, duration: 1.3, ease: 'power2.inOut' }, 2.35);
-      tl.to(s, { presence: 1.09, duration: 0.32, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 2.85);
-      tl.call(() => this.star.setLookAngles(0, 0), [], 2.6);
-      // 4 · Se coloca el visor de vigía.
-      tl.to(s, { visor: 1, duration: 0.85, ease: 'back.out(1.7)' }, 3.55);
-      tl.to(s, { hud: 1, duration: 0.55, ease: 'steps(5)' }, 4.2);
-      // 5 · Mira alrededor y descubre la Tierra (con una segunda mirada).
-      tl.call(() => this.star.setLookAngles(-0.5, 0.08), [], 4.55);
-      tl.call(() => this.star.setLookAngles(0.6, -0.02), [], 5.0);
-      tl.to(p, { lookMix: 1, earth: 1, duration: 1.5, ease: 'power2.inOut' }, 5.0);
-      tl.call(() => { this.star.setLookAngles(0.25, 0.05); this.star.react('curious'); }, [], 5.5);
-      tl.call(() => this.star.setLookAngles(0.7, 0.0), [], 5.78);
-      // 6-7 · Se orienta y viaja; la cámara acompaña.
-      tl.call(() => this.star.lookAtWorld(new THREE.Vector3()), [], 6.1);
-      tl.to(p, { travel: 1, duration: 2.55, ease: 'power2.inOut' }, 6.0);
-      tl.to(p, { starPos: 1, duration: 2.25, ease: 'power2.inOut' }, 6.25);
-      tl.to(s, { flex: 0.35, duration: 1.5 }, 6.4);
-      tl.call(() => cb.onPrepare(), [], 6.7);
-      tl.call(() => cb.onWordmark?.(1), [], 6.9);
-      // 9 · Primer pulso de observación.
+      // A · Encuentro (0–2,4 s): aparece el astronauta frente a la escotilla.
+      tl.fromTo(p, { reveal: 0 }, { reveal: 1, duration: 1.4, ease: 'power2.out' }, 0);
+      tl.call(() => cb.onCaption?.('Mira nuestro planeta.'), [], 0.7);
+      tl.to(p, { travel: 0.12, duration: 2.4, ease: 'sine.inOut' }, 0);
+      // B · Transición (2,4–5,4 s): sobre el hombro y a través de la escotilla.
+      tl.call(() => cb.onCaption?.(null), [], 2.9);
+      tl.to(p, { travel: 1, duration: 4.8, ease: 'power2.inOut' }, 2.4);
+      // C · Revelación (≈5,4–7,2 s): el globo se prepara debajo y aparece el primer pulso.
+      tl.call(() => cb.onPrepare(), [], 6.4);
       tl.call(() => {
-        this.star.react('scan');
         const origin = this.camera.position.clone().normalize();
         this.scan.trigger(origin, { duration: 4.2 });
-      }, [], 8.2);
-      tl.call(() => cb.onWordmark?.(0), [], 8.45);
-      // 10 · Relevo al observatorio.
+      }, [], 6.6);
+      // D · Activación (7,2–8,6 s): identidad y relevo al observatorio.
+      tl.call(() => cb.onWordmark?.(1), [], 7.0);
+      tl.call(() => cb.onWordmark?.(0), [], 8.5);
       tl.call(handoff, [], 8.6);
     }
 
@@ -217,8 +199,8 @@ export class IntroScene {
     this.handedOff = true;
     // Encuadre final garantizado (aunque la línea de tiempo se haya retrasado).
     this.timeline?.kill();
-    gsap.to(this.params, { travel: 1, lookMix: 1, starPos: 1, earth: 1, duration: 0.25, ease: 'power1.out' });
-    Object.assign(this.star.state, { presence: 1, awake: 1, visor: 1, hud: 1 });
+    gsap.to(this.params, { travel: 1, reveal: 1, duration: 0.25, ease: 'power1.out' });
+    this.options.callbacks.onCaption?.(null);
     this.options.callbacks.onPrepare();
     this.options.callbacks.onHandoff();
     gsap.to(this.params, {
@@ -229,18 +211,19 @@ export class IntroScene {
     });
   }
 
-  /** Omitir: llega de inmediato a un estado estable del observatorio. */
+  /** Saltar: llega de inmediato a un estado estable del observatorio. */
   skip() {
     if (this.finished) return;
     this.timeline?.kill();
     this.options.callbacks.onWordmark?.(0);
+    this.options.callbacks.onCaption?.(null);
     if (!this.handedOff) {
       this.handedOff = true;
       this.options.callbacks.onPrepare();
       this.options.callbacks.onHandoff();
     }
     gsap.killTweensOf(this.params);
-    Object.assign(this.params, { travel: 1, lookMix: 1, starPos: 1, earth: 1 });
+    Object.assign(this.params, { travel: 1, reveal: 1 });
     gsap.to(this.params, { fade: 0, duration: 0.3, ease: 'power1.out', onComplete: () => this.finish() });
   }
 
@@ -260,21 +243,24 @@ export class IntroScene {
     this.elapsed += dt;
     const p = this.params;
 
-    // Cámara.
+    // Cámara: recorrido continuo y mirada siempre al centro de la Tierra.
     const pos = this.path.getPoint(Math.min(1, Math.max(0, p.travel)));
     this.camera.position.copy(pos);
-    const look = new THREE.Vector3().lerpVectors(this.startLook, new THREE.Vector3(0, 0, 0), p.lookMix);
-    if (p.travel > 0) look.lerp(new THREE.Vector3(0, 0, 0), Math.min(1, p.travel * 1.5));
-    this.camera.lookAt(look);
+    this.camera.up.set(0, 1, 0);
+    this.camera.lookAt(0, 0, 0);
+    // En pantallas verticales se abre el encuadre en la cabina (astronauta y escotilla
+    // completos) y se vuelve a los 50° del globo antes del relevo.
+    const aspect = this.camera.aspect;
+    const cabinFov = aspect < 1 ? Math.min(92, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(25)) / aspect))) : 50;
+    const fov = THREE.MathUtils.lerp(cabinFov, 50, THREE.MathUtils.smoothstep(p.travel, 0.2, 0.9));
+    if (Math.abs(this.camera.fov - fov) > 0.01) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+    }
 
-    // Estrella: de "héroe" centrada a la percha del observatorio.
-    const perch = this.perchPosition();
-    const k = p.starPos;
-    // En pantallas estrechas la estrella "héroe" se aleja para no ocupar todo el ancho.
-    this.heroPos.z = -9 * Math.max(1, 1.2 / this.camera.aspect);
-    this.star.root.position.lerpVectors(this.heroPos, perch.pos, k);
-    this.star.root.scale.setScalar(THREE.MathUtils.lerp(1, perch.scale, k));
-    this.star.update(this.elapsed, dt);
+    // Astronauta flotando; la cabina se apaga al quedar detrás de la cámara.
+    this.rig.update(this.elapsed);
+    this.cabin.visible = p.travel < 0.985;
 
     // Sol cinemático relativo a la cámara (igual que en el observatorio).
     const camDir = this.camera.position.clone().normalize();
@@ -284,15 +270,15 @@ export class IntroScene {
     this.earth.setSun(sun);
     this.clouds.setSun(sun);
     this.clouds.update(dt);
-    (this.earth.material.uniforms.exposure as THREE.IUniform<number>).value = p.earth;
-    (this.atmosphere.material as THREE.ShaderMaterial).uniforms.intensity.value = p.earth;
-    this.starfield.setOpacity(p.stars);
+    (this.earth.material.uniforms.exposure as THREE.IUniform<number>).value = 0.35 + 0.65 * p.reveal;
+    (this.atmosphere.material as THREE.ShaderMaterial).uniforms.intensity.value = p.reveal;
+    this.starfield.setOpacity(0.4 + 0.6 * p.reveal);
     this.starfield.update(this.elapsed);
-    this.dust.setOpacity(0.6 * p.stars);
+    this.dust.setOpacity(0.5 * p.reveal);
     this.dust.update(this.elapsed, dt);
     this.scan.update(dt);
 
-    this.canvas.style.opacity = String(p.fade);
+    this.canvas.style.opacity = String(p.fade * Math.min(1, 0.15 + p.reveal));
     this.renderer.render(this.scene, this.camera);
   };
 
@@ -313,7 +299,7 @@ export class IntroScene {
     (this.atmosphere.material as THREE.Material).dispose();
     this.clouds.dispose();
     this.scan.dispose();
-    this.star.dispose();
+    this.rig.dispose();
     this.renderer.dispose();
     this.canvas.remove();
   }

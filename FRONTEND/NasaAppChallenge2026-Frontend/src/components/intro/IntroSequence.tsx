@@ -1,8 +1,9 @@
 'use client';
 /**
- * Introducción cinematográfica. Se ejecuta en cada carga de la aplicación (no al
- * navegar entre vistas), puede omitirse en cualquier momento y nunca bloquea:
- * si WebGL o un recurso falla, se pasa directamente al observatorio.
+ * Introducción cinematográfica: astronauta → escotilla → Tierra → observatorio.
+ * Se ve una vez por sesión del navegador (luego se entra directo a la Tierra), puede
+ * saltarse en cualquier momento y repetirse a propósito desde Configuración. Nunca
+ * bloquea: si WebGL o un recurso falla, se pasa directamente al observatorio.
  */
 import { useEffect, useRef, useState } from 'react';
 import { SkipForward } from 'lucide-react';
@@ -11,6 +12,8 @@ import { appConfig } from '@/config/app';
 import { IntroScene } from '@/scene/introScene';
 import { globeBridge } from '@/scene/bridge';
 import { useReducedMotion, useStore } from '@/state/store';
+
+const SEEN_KEY = 'tpentagron-intro-seen';
 
 export default function IntroSequence() {
   const phase = useStore((s) => s.phase);
@@ -21,6 +24,7 @@ export default function IntroSequence() {
   const sceneRef = useRef<IntroScene | null>(null);
   const [active, setActive] = useState(true);
   const [wordmark, setWordmark] = useState(0);
+  const [caption, setCaption] = useState<string | null>(null);
   const [lastRun, setLastRun] = useState(introRun);
 
   // Repetir la introducción desde Configuración.
@@ -32,6 +36,13 @@ export default function IntroSequence() {
   useEffect(() => {
     if (!active || phase !== 'intro' || !containerRef.current) return;
     const s = useStore.getState();
+    // Tras la primera visita de la sesión se entra directo al observatorio.
+    let seen = false;
+    try {
+      seen = window.sessionStorage.getItem(SEEN_KEY) === '1';
+    } catch {
+      /* almacenamiento no disponible: se muestra la intro */
+    }
     const prepare = () => {
       const bridge = globeBridge.get();
       if (!bridge) return;
@@ -42,6 +53,12 @@ export default function IntroSequence() {
     // Al repetir la intro se parte de un estado limpio; en la primera carga se respeta la
     // selección que venga en la URL (enlaces compartidos).
     if (introRun > 0) s.clearSelection();
+    if (seen && introRun === 0) {
+      prepare();
+      s.finishIntro();
+      const t = window.setTimeout(() => setActive(false), 0);
+      return () => window.clearTimeout(t);
+    }
     const container = containerRef.current;
     let scene: IntroScene | null = null;
     // Se difiere un tick: si el efecto se desmonta enseguida (modo estricto), no se crea
@@ -56,10 +73,18 @@ export default function IntroSequence() {
             onHandoff: () => useStore.getState().finishIntro(),
             onDone: () => setActive(false),
             onWordmark: setWordmark,
+            onCaption: setCaption,
           },
         });
         sceneRef.current = scene;
         scene.start();
+        // Se marca como vista solo cuando realmente empieza (el doble montaje de desarrollo
+        // no debe consumirla).
+        try {
+          window.sessionStorage.setItem(SEEN_KEY, '1');
+        } catch {
+          /* sin almacenamiento: se repetirá en la próxima carga */
+        }
       } catch (error) {
         console.warn('Introducción no disponible, se continúa al observatorio.', error);
         prepare();
@@ -90,18 +115,22 @@ export default function IntroSequence() {
 
   return (
     <div ref={containerRef} className="intro" data-phase={phase}>
+      <p className={`intro__caption ${caption ? 'is-on' : ''}`} aria-live="polite">
+        <span className="intro__caption-dot" aria-hidden="true" />
+        {caption ?? ''}
+      </p>
       <div className="intro__wordmark" style={{ opacity: wordmark }} aria-hidden={wordmark < 0.5}>
-        <span className="intro__eyebrow">{brand.event}</span>
         <span className="intro__name">{brand.name}</span>
         <span className="intro__tag">{brand.tagline}</span>
+        <span className="intro__eyebrow">{brand.event}</span>
       </div>
       <button
         type="button"
         className="intro__skip"
         onClick={() => sceneRef.current?.skip()}
-        aria-label="Omitir introducción"
+        aria-label="Saltar intro"
       >
-        <span>Omitir introducción</span>
+        <span>Saltar intro</span>
         <SkipForward size={15} aria-hidden="true" />
       </button>
       <p className="sr-only" role="status">

@@ -196,7 +196,7 @@ export function TimelineDock({ compact = false, measure = true }: { compact?: bo
         </div>
       </div>
       <div className="timeline__caption muted">
-        {layer === 'prediction' ? (predictionAvailable ? 'Probabilidad experimental de detección t+1 · Modelo B FireSight · zona piloto Chiquitanía' : 'Predicción no disponible · sin modelo entrenado') : layer === 'harmonized' ? 'Índice exploratorio diario 0–1 · normalizado por sensor, sin calibración física' : `Detecciones diarias originales ${layer.toUpperCase()}`} · {region?.name ?? '—'} {env.dataMode === 'mock' ? '(demo)' : `· NASA FIRMS ${archive}`}
+        {layer === 'prediction' ? (predictionAvailable ? 'Probabilidad experimental de detección t+1 · Modelo B · zona piloto Chiquitanía' : 'Predicción no disponible · sin modelo entrenado') : layer === 'harmonized' ? 'Índice exploratorio diario 0–1 · normalizado por sensor, sin calibración física' : `Detecciones diarias originales ${layer.toUpperCase()}`} · {region?.name ?? '—'} {env.dataMode === 'mock' ? '(demo)' : `· NASA FIRMS ${archive}`}
       </div>
       </div>
     </section>

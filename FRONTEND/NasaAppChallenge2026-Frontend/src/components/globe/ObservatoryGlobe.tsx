@@ -9,6 +9,7 @@
  */
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import gsap from 'gsap';
 import type { Material } from 'three';
 import { latLngToCell } from 'h3-js';
 import { appConfig } from '@/config/app';
@@ -24,6 +25,8 @@ import { createEarthMaterial } from '@/scene/earth';
 import { ObservatoryEngine } from '@/scene/observatoryEngine';
 import { globeBridge } from '@/scene/bridge';
 import { perchFor } from '@/scene/perch';
+import { createDetectionField, type DetectionField } from '@/scene/detectionField';
+import { createOrbitLayer, type OrbitLayer } from '@/scene/orbitLayer';
 import {
   buildPolygons, buildSymbols, displayResolution, polygonAltitude, recordsAtResolution, regionGlances,
   symbolResolution, SYMBOL_ALT, type PolygonFeature,
@@ -89,6 +92,7 @@ export default function ObservatoryGlobe() {
   const scanNonce = useStore((s) => s.scanNonce);
   const fly = useStore((s) => s.fly);
   const playing = useStore((s) => s.playing);
+  const destination = useStore((s) => s.destination);
   const say = useNarrator((s) => s.say);
 
   const quality = settings.quality;
@@ -334,6 +338,9 @@ export default function ObservatoryGlobe() {
       onCometBurst: () => say('Fragmento cometario disperso. Volviendo a la Tierra.', 'info', 2600),
     });
     engine.setEarth(earth);
+    // Una sola identidad de asistente: el astronauta de la intro (AstronautAssistant) recibe
+    // los mensajes de estado; la estrella guardiana queda desactivada.
+    engine.setMascotEnabled(false);
     return engine;
   }, [quality, earth, say, onZoom]);
 
@@ -358,6 +365,69 @@ export default function ObservatoryGlobe() {
       }
     };
   }, [globeReady, createEngine]);
+
+  /* ---------------- Detecciones persistentes y órbitas ---------------- */
+  const fieldRef = useRef<DetectionField | null>(null);
+  const orbitRef = useRef<OrbitLayer | null>(null);
+  const [fieldCount, setFieldCount] = useState(0);
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!ready || !globe) return;
+    const field = createDetectionField(Math.min(window.devicePixelRatio || 1, quality === 'high' ? 2 : 1.5));
+    const orbit = createOrbitLayer();
+    globe.scene().add(field.points, orbit.group);
+    fieldRef.current = field;
+    orbitRef.current = orbit;
+    const b = globeBridge.get();
+    if (b) globeBridge.set({ ...b, orbit });
+    return () => {
+      globe.scene().remove(field.points, orbit.group);
+      field.dispose();
+      orbit.dispose();
+      fieldRef.current = null;
+      orbitRef.current = null;
+    };
+  }, [ready, quality]);
+
+  // Todas las celdas con detecciones de la fecha, capa y filtros activos (sin pulsar nada).
+  useEffect(() => {
+    if (!ready || !fieldRef.current) return;
+    setFieldCount(fieldRef.current.setData(native, { layer, granularity, filters }));
+  }, [ready, native, layer, granularity, filters]);
+
+  // Aparición breve al llegar al observatorio; después permanecen visibles.
+  useEffect(() => {
+    const field = fieldRef.current;
+    if (!ready || !field) return;
+    if (phase !== 'observatory') {
+      field.setReveal(0);
+      return;
+    }
+    const proxy = { v: 0 };
+    const tw = gsap.to(proxy, { v: 1, duration: reduced ? 0.01 : 1.8, delay: reduced ? 0 : 0.35, ease: 'power2.out', onUpdate: () => field.setReveal(proxy.v) });
+    return () => {
+      tw.kill();
+      field.setReveal(1);
+    };
+  }, [ready, phase, reduced]);
+
+  // Modo ÓRBITA: órbitas visibles y cámara más lejana; al volver, encuadre de observación.
+  const lastDestination = useRef(destination);
+  useEffect(() => {
+    const orbit = orbitRef.current;
+    const globe = globeRef.current;
+    if (!ready || !orbit || !globe) return;
+    const proxy = { o: destination === 'orbit' ? 0 : 1 };
+    const target = destination === 'orbit' ? 1 : 0;
+    const tw = gsap.to(proxy, { o: target, duration: reduced ? 0.01 : 1.1, ease: 'power2.inOut', onUpdate: () => orbit.setOpacity(proxy.o) });
+    const pov = globe.pointOfView();
+    if (destination === 'orbit') globe.pointOfView({ lat: pov.lat, lng: pov.lng, altitude: 3.3 }, reduced ? 0 : 1600);
+    else if (destination === 'earth' && lastDestination.current !== 'earth') globe.pointOfView(appConfig.initialView, reduced ? 0 : 1600);
+    lastDestination.current = destination;
+    return () => {
+      tw.kill();
+    };
+  }, [ready, destination, reduced]);
 
   // Efectos visuales.
   useEffect(() => {
@@ -416,11 +486,11 @@ export default function ObservatoryGlobe() {
   useEffect(() => {
     const globe = globeRef.current;
     if (!ready || !globe) return;
-    const hidden = view === 'regional' && !transition;
+    const hidden = (view === 'regional' && !transition) || destination === 'mars' || destination === 'universe';
     engineRef.current?.setVisible(!hidden && phase === 'observatory');
     if (phase === 'observatory' && !hidden) globe.resumeAnimation();
     else if (hidden) globe.pauseAnimation();
-  }, [ready, phase, view, transition]);
+  }, [ready, phase, view, transition, destination]);
 
   // Onda de escaneo.
   const firstScan = useRef(true);
@@ -584,7 +654,11 @@ export default function ObservatoryGlobe() {
         }}
         showPointerCursor
       />
-      {phase === 'observatory' && view === 'global' && <span className="map-density-note">Vista agrupada · {polygons.length ? `${polygons.length} celdas destacadas` : 'acércate para inspeccionar'} · totales completos en los paneles</span>}
+      {phase === 'observatory' && view === 'global' && destination === 'earth' && (
+        <span className="map-density-note" role="status">
+          {snapshot ? (fieldCount ? `${fieldCount} celdas con detecciones visibles` : 'Sin detecciones en esta fecha y filtros') : 'Cargando detecciones…'} · {polygons.length ? `${polygons.length} destacadas` : 'acércate para inspeccionar'} · totales completos en los paneles
+        </span>
+      )}
       {env.enableGlobeTiles && cam.altitude < 0.7 && <span className="globe-attribution">Mapa de referencia: Esri World Imagery · Esri, Maxar, Earthstar Geographics y comunidad GIS. No corresponde a la fecha seleccionada.</span>}
     </div>
   );

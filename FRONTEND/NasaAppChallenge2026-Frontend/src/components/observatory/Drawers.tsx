@@ -5,7 +5,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import gsap from 'gsap';
 import { ExternalLink, Navigation, Orbit, RotateCcw, Search, X, CalendarDays } from 'lucide-react';
-import { brand, nameProposals } from '@/config/brand';
+import { brand } from '@/config/brand';
 import { env } from '@/config/env';
 import { useGlobeSnapshot, useMetadata, useRegions } from '@/hooks/data';
 import { CATEGORY, LEGEND_ORDER } from '@/lib/science/categories';
@@ -338,8 +338,8 @@ function AboutDrawer() {
         </ul>
       </Item>
       <Item>
-        <h3>Nombre del proyecto</h3>
-        <p className="muted small">Nombre provisional «{brand.name}» (clave {brand.codename}). Propuestas: {nameProposals.join(' · ')}. Se cambia en <code>src/config/brand.ts</code>.</p>
+        <h3>{brand.name}</h3>
+        <p className="muted small">«{brand.tagline}». Equipo {brand.team} · {brand.event}. La mención de la NASA describe las fuentes de datos y el reto, no una afiliación.</p>
       </Item>
     </div>
   );

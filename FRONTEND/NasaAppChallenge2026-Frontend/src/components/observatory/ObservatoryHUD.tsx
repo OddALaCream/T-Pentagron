@@ -14,7 +14,7 @@ import { TimelineDock } from './TimelineDock';
 import { Legend } from './Legend';
 import { CameraControls } from './CameraControls';
 import { DrawerHost } from './Drawers';
-import { MascotStatus, SelectionTether } from './SceneOverlays';
+import { SelectionTether } from './SceneOverlays';
 
 export function ObservatoryHUD() {
   const phase = useStore((s) => s.phase);
@@ -23,6 +23,7 @@ export function ObservatoryHUD() {
   const panelOpen = useStore((s) => s.panel.open);
   const minimized = useStore((s) => s.panel.minimized);
   const drawer = useStore((s) => s.drawer);
+  const destination = useStore((s) => s.destination);
   const setTransition = useStore((s) => s.setTransition);
   const compact = useIsCompact();
   const ref = useRef<HTMLDivElement>(null);
@@ -46,7 +47,7 @@ export function ObservatoryHUD() {
     };
   }, [phase]);
 
-  const hidden = phase !== 'observatory' || view !== 'global';
+  const hidden = phase !== 'observatory' || view !== 'global' || destination === 'mars' || destination === 'universe';
 
   return (
     <div ref={ref} className={`hud ${drawer ? 'has-drawer' : ''} ${panelOpen && !minimized && selection ? 'has-inspector' : ''} ${hidden ? 'is-hidden' : ''}`} aria-hidden={hidden}>
@@ -57,7 +58,7 @@ export function ObservatoryHUD() {
       <TimelineDock compact={compact} />
       <InspectorPanel />
       <SelectionTether />
-      <MascotStatus />
+      {/* Los mensajes de estado los dice ahora el asistente astronauta (AstronautAssistant). */}
       {compact && selection && !panelOpen && (
         <button type="button" className="explore-fab btn btn--primary" onClick={() => setTransition('entering')}>
           <Orbit size={15} /> Explorar zona

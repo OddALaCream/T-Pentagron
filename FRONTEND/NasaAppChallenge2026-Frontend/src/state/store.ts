@@ -20,6 +20,8 @@ export type View = 'global' | 'regional';
 export type Quality = 'high' | 'balanced' | 'low';
 export type PanelTab = 'summary' | 'calendar' | 'sensors' | 'prediction' | 'advanced';
 export type Drawer = null | 'regions' | 'filters' | 'settings' | 'about' | 'help';
+/** Destinos de navegación espacial. La Tierra (observatorio) es la misión principal. */
+export type Destination = 'earth' | 'orbit' | 'mars' | 'universe';
 
 export type Selection =
   | { kind: 'cell'; h3: string; regionId: string; resolution: number }
@@ -86,6 +88,9 @@ interface State {
   systemReducedMotion: boolean;
   camera: { altitude: number; lat: number; lng: number };
   webglFailed: boolean;
+  destination: Destination;
+  /** Asistente astronauta: panel abierto y si ya saludó en esta sesión. */
+  assistant: { open: boolean; greeted: boolean; hidden: boolean };
 
   finishIntro: () => void;
   replayIntro: () => void;
@@ -115,6 +120,8 @@ interface State {
   enterRegional: (regionId: string) => void;
   exitRegional: () => void;
   setWebglFailed: (failed: boolean) => void;
+  setDestination: (destination: Destination) => void;
+  setAssistant: (patch: Partial<State['assistant']>) => void;
 }
 
 export const defaultSettings: Settings = {
@@ -161,6 +168,8 @@ export const useStore = create<State>()(
       systemReducedMotion: false,
       camera: { altitude: appConfig.initialView.altitude, lat: appConfig.initialView.lat, lng: appConfig.initialView.lng },
       webglFailed: false,
+      destination: 'earth',
+      assistant: { open: false, greeted: false, hidden: false },
 
       finishIntro: () => set((s) => (s.phase === 'observatory' ? s : { phase: 'observatory', scanNonce: s.scanNonce + 1 })),
       replayIntro: () => set((s) => ({ phase: 'intro', introRun: s.introRun + 1, drawer: null, playing: false })),
@@ -227,14 +236,18 @@ export const useStore = create<State>()(
       enterRegional: (regionId) => set({ view: 'regional', regionalId: regionId, playing: false, drawer: null }),
       exitRegional: () => set({ view: 'global' }),
       setWebglFailed: (webglFailed) => set({ webglFailed }),
+      setDestination: (destination) =>
+        set((s) => (s.destination === destination ? s : { destination, playing: false, drawer: null, selection: destination === 'earth' ? s.selection : null, panel: destination === 'earth' ? s.panel : { ...s.panel, open: false } })),
+      setAssistant: (patch) => set((s) => ({ assistant: { ...s.assistant, ...patch } })),
     }),
     {
       name: 'observatorio-settings-v1',
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ settings: s.settings }),
+      partialize: (s) => ({ settings: s.settings, assistantHidden: s.assistant.hidden }),
       merge: (persisted, current) => {
         const p = persisted as Partial<State> | undefined;
-        return { ...current, settings: { ...current.settings, ...(p?.settings ?? {}) } };
+        const hidden = Boolean((persisted as { assistantHidden?: boolean } | undefined)?.assistantHidden);
+        return { ...current, settings: { ...current.settings, ...(p?.settings ?? {}) }, assistant: { ...current.assistant, hidden } };
       },
     },
   ),

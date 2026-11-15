@@ -102,6 +102,7 @@ export class ObservatoryEngine {
   private frameListeners = new Set<(info: FrameInfo) => void>();
   private disposed = false;
   private mascotScreen: FrameInfo['mascotScreen'] = null;
+  private mascotEnabled = true;
   private perch = { x: 0.2, y: 0.25, scale: 0.055 };
   private pointerDown: { x: number; y: number; t: number } | null = null;
   private previousOnBeforeRender: THREE.Scene['onBeforeRender'];
@@ -240,6 +241,16 @@ export class ObservatoryEngine {
     this.visible = visible;
   }
 
+  /** Muestra u oculta la estrella guardiana (y su zona de clic). */
+  setMascotEnabled(enabled: boolean) {
+    this.mascotEnabled = enabled;
+    if (!enabled) {
+      this.mascot.root.visible = false;
+      this.mascotScreen = null;
+      this.canvas.style.cursor = '';
+    }
+  }
+
   addFrameListener(fn: (info: FrameInfo) => void) {
     this.frameListeners.add(fn);
     return () => this.frameListeners.delete(fn);
@@ -367,6 +378,13 @@ export class ObservatoryEngine {
     const k = d / Math.max(0.05, -local.z);
     root.position.copy(local).multiplyScalar(k);
     root.scale.setScalar(d * this.perch.scale);
+    // Sin estrella visible (el asistente es el astronauta): solo se conserva su posición
+    // como origen de la onda de escaneo.
+    if (!this.mascotEnabled) {
+      root.visible = false;
+      this.mascotScreen = null;
+      return;
+    }
     root.visible = altitude > 0.012;
     this.mascot.update(t, this.effects.reducedMotion ? dt * 0.4 : dt);
 

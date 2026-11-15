@@ -4,10 +4,13 @@
  */
 import type { GlobeMethods } from 'react-globe.gl';
 import type { ObservatoryEngine } from './observatoryEngine';
+import type { OrbitLayer } from './orbitLayer';
 
 export interface GlobeBridge {
   globe: GlobeMethods;
   engine: ObservatoryEngine;
+  /** Capa de órbitas (modo ÓRBITA), si ya está creada. */
+  orbit?: OrbitLayer;
 }
 
 let current: GlobeBridge | null = null;

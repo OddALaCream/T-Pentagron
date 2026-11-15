@@ -18,7 +18,7 @@ const mono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: `${brand.name} · ${brand.challenge}`,
+  title: `${brand.name} · ${brand.tagline}`,
   description: `${brand.fullName}: exploración 3D de la actividad térmica observada por MODIS y VIIRS, armonización y pronóstico experimental. ${brand.event}.`,
   applicationName: brand.name,
 };

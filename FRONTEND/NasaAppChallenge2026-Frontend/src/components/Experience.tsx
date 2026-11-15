@@ -16,6 +16,9 @@ import { BrandMark } from './observatory/BrandMark';
 import { brand } from '@/config/brand';
 import { getDataService } from '@/lib/data/service';
 import { globeBridge } from '@/scene/bridge';
+import { DestinationNav } from './space/DestinationNav';
+import { OrbitPanel } from './space/OrbitPanel';
+import { AstronautAssistant } from './observatory/AstronautAssistant';
 
 // Las coreografías siguen el tiempo real aunque haya pocos fotogramas (equipos modestos o
 // pestañas ralentizadas): así terminan a tiempo en lugar de estirarse indefinidamente.
@@ -23,6 +26,7 @@ gsap.ticker.lagSmoothing(0);
 
 const ObservatoryGlobe = dynamic(() => import('./globe/ObservatoryGlobe'), { ssr: false, loading: () => null });
 const IntroSequence = dynamic(() => import('./intro/IntroSequence'), { ssr: false, loading: () => null });
+const SpaceDestination = dynamic(() => import('./space/SpaceDestination').then((m) => m.SpaceDestination), { ssr: false, loading: () => null });
 const RegionalView = dynamic(() => import('./regional/RegionalView').then((m) => m.RegionalView), {
   ssr: false,
   loading: () => <div className="regional regional--loading">Cargando vista regional…</div>,
@@ -109,6 +113,10 @@ function Stage() {
         </div>
       )}
       <ObservatoryHUD />
+      <OrbitPanel />
+      {webgl && !webglFailed && <SpaceDestination />}
+      <DestinationNav />
+      <AstronautAssistant />
       {view === 'regional' && <RegionalView />}
       <RegionalTransition />
       {webgl && !webglFailed && <IntroSequence />}

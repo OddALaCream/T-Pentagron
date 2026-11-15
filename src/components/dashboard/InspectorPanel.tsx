@@ -39,7 +39,8 @@ export function InspectorPanel() {
     const center = info.kind === 'cell' && info.h3 ? cellCenter(info.h3) : info.region?.center;
     if (!bridge || !center) return null;
     const p = bridge.globe.getScreenCoords(center.lat, center.lng, 0.01);
-    return p && Number.isFinite(p.x) ? { x: p.x, y: p.y } : null;
+    const rect = bridge.globe.renderer().domElement.getBoundingClientRect();
+    return p && Number.isFinite(p.x) ? { x: p.x + rect.left, y: p.y + rect.top } : null;
   }, [info]);
 
   const open = Boolean(info) && panel.open && view === 'global';

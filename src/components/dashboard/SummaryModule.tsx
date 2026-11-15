@@ -70,7 +70,7 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
   };
 
   return (
-    <div className="module">
+    <div className="module summary-module">
       <div className="summary-head" data-holo-item>
         <div className="summary-head__place">
           <span className="summary-head__region">{info.region?.name ?? 'Región'}</span>

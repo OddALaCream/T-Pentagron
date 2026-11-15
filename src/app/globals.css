@@ -694,7 +694,7 @@ select {
 }
 
 /* Observatorio: un espacio continuo para el mapa y superficies compactas. */
-:root { --top-h: 92px; --dock-h: 62px; --ui-gap: 12px; }
+:root { --top-h: 92px; --dock-h: 62px; --ui-gap: 12px; --inspector-width: clamp(300px, 27vw, 360px); --inspector-expanded-width: min(540px, 42vw); }
 .topbar { top: max(10px, env(safe-area-inset-top)); left: 14px; right: 14px; height: auto; grid-template-columns: minmax(120px, 1fr) minmax(0, 720px) minmax(160px, 1fr); grid-template-rows: auto; gap: 12px; align-items: start; }
 .topbar__brand { grid-column: 1; grid-row: 1; padding: 5px 0; gap: 8px; min-width: 0; }
 .topbar__sub { display: none; }
@@ -722,8 +722,8 @@ select {
 .timeline__months span { font-size: 10px; line-height: 17px; color: #a7b7cc; }
 .timeline__playhead span { box-shadow: none; background: #b7d5df; }
 .timeline__caption { font-size: 10px; line-height: 1.5; margin-top: 5px; text-align: left; }
-.holo { right: 16px; top: calc(var(--top-h) + 32px); bottom: calc(var(--dock-h) + 36px); width: min(350px, 30vw); max-height: 600px; }
-.holo.is-expanded { width: min(640px, 48vw); max-height: none; }
+.holo { right: 16px; top: calc(var(--top-h) + 26px); bottom: calc(var(--dock-h) + 30px); width: var(--inspector-width); max-height: none; }
+.holo.is-expanded { width: var(--inspector-expanded-width); max-height: none; }
 .holo.is-minimized { top: auto; bottom: calc(var(--dock-h) + 30px); height: auto; }
 .holo__float, .holo__surface, .holo__body, .holo__toolbar { min-width: 0; }
 .holo__float { animation: none; }
@@ -732,19 +732,21 @@ select {
 .holo__header { padding: 12px; align-items: center; gap: 8px; }
 .holo__icon { width: 28px; height: 28px; background: rgba(155, 185, 205, .05); box-shadow: none; }
 .holo__title { font-size: 15px; }
-.holo__subtitle { font-size: 10px; line-height: 1.4; }
+.holo__subtitle { display: none; }
 .holo__controls { gap: 0; flex: none; }
 .holo__controls .icon-btn { width: 30px; height: 32px; }
-.holo__body { padding: 12px 14px 18px; overflow: auto; overscroll-behavior: contain; }
+.holo__body { padding: 10px 12px 16px; overflow: auto; overscroll-behavior: contain; }
 .holo__toolbar { padding: 0 6px; }
-.tabs button { font-size: 11px; padding: 9px 7px; gap: 4px; }
+.inspector .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
+.inspector .tabs button { justify-content: center; min-width: 0; min-height: 34px; font-size: 12px; padding: 6px 3px; gap: 4px; }
 .tabs button.is-on::after { box-shadow: none; background: #a9c9d6; }
 .summary-head__place { display: none; }
 .summary-head { justify-content: flex-end; }
-.category-pill { font-size: 11px; padding: 4px 8px; }
-.stats-grid { gap: 8px; }
+.category-pill { font-size: 12px; padding: 4px 8px; }
+.stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .stat { padding: 10px; border-color: rgba(148, 178, 203, .12); }
 .stat__value { font-size: 21px; font-weight: 500; }
+.summary-module > .stats-grid { order: -1; }
 .summary-details { border-top: 1px solid var(--line); padding-top: 9px; font-size: 12px; }
 .summary-details > summary { cursor: pointer; color: #a7bbce; padding: 3px 0; }
 .summary-details[open] > summary { margin-bottom: 10px; }
@@ -766,7 +768,7 @@ select {
   .topbar { grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 5px; }
   .topbar__actions { grid-column: 2; }
   .topbar__center { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 5px 12px; }
-  .holo { width: 340px; }
+  .holo { width: var(--inspector-width); }
   .topbar__names { display: grid; }
 }
 @media (max-width: 899px) {
@@ -824,7 +826,7 @@ select {
   .kv > div { grid-template-columns: 95px minmax(0, 1fr); }
 }
 @media (max-height: 520px) and (min-width: 601px) {
-  .holo, .holo.is-expanded { left: auto; right: 12px; width: min(340px, 45vw); top: calc(var(--top-h) + 24px); bottom: calc(var(--dock-h) + 28px); height: auto; max-height: none; }
+  .holo, .holo.is-expanded { left: auto; right: 16px; width: var(--inspector-width); top: calc(var(--top-h) + 24px); bottom: calc(var(--dock-h) + 28px); height: auto; max-height: none; }
   .holo.is-minimized { top: auto; }
   .drawer { max-width: 350px; }
   .timeline__track { height: 44px; }
@@ -843,3 +845,36 @@ select {
   .regional__tools { max-width: 100%; }
   .map-density-note { bottom: calc(var(--dock-h) + 17px); font-size: 8px; }
 }
+
+/* The canvas uses the remaining viewport, including short laptop browser windows. */
+.globe-layer.is-observing { top: calc(var(--top-h) + 24px); bottom: calc(var(--dock-h) + 32px); }
+.globe-layer.is-observing.has-inspector { right: calc(var(--inspector-width) + 32px); }
+.globe-layer.is-observing.has-inspector.is-panel-expanded { right: calc(var(--inspector-expanded-width) + 32px); }
+@media (min-width: 900px) {
+  .camera-controls, .hud.has-inspector .camera-controls { left: 14px; right: auto; top: calc(var(--top-h) + 18px); bottom: auto; transform: none; display: flex; gap: 1px; padding: 3px; }
+  .camera-controls__sep { width: 1px; height: 20px; margin: 6px 3px; }
+  .holo.is-expanded { width: var(--inspector-expanded-width); }
+  .holo__header { padding: 8px 10px; }
+  .holo__title { font-size: 15px; }
+  .holo__controls .icon-btn { width: 28px; height: 32px; }
+  .summary-module { gap: 10px; }
+  .telemetry { font-size: 12px; }
+  .globe-attribution { top: calc(var(--top-h) + 62px); }
+}
+@media (min-width: 900px) and (max-height: 700px) {
+  .timeline__track { height: 42px; }
+  .timeline__hist { height: 21px; }
+  .timeline__caption { display: none; }
+  .holo__eyebrow { display: none; }
+  .holo__icon { display: none; }
+  .holo__title { font-size: 14px; }
+  .holo__body { padding: 8px 10px 14px; }
+  .stat { padding: 8px; }
+  .stat__value { font-size: 20px; }
+  .legend { width: 160px; }
+}
+@media (max-width: 899px) {
+  .globe-layer.is-observing.has-inspector, .globe-layer.is-observing.has-inspector.is-panel-expanded { right: 0; }
+}
+
+.globe-layer.is-observing .map-density-note { position: absolute; bottom: 4px; max-width: calc(100% - 16px); white-space: normal; text-align: center; }

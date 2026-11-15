@@ -1,5 +1,9 @@
 # NasaAppChallenge2026-Frontend
 
+Este frontend forma parte del repositorio completo [T-Pentagron](../../README.md).
+Para ejecutar la integración con datos reales, sigue las instrucciones del README
+de la raíz. `.env.example` configura el modo API; el modo mock se activa expresamente.
+
 **Observatorio** (nombre provisional) — observatorio 3D de actividad térmica terrestre para el reto **Harmonization of MODIS and VIIRS Hot Spots** (NASA Space Apps Challenge 2026).
 Planeta interactivo con celdas **H3 auténticas**, capas **MODIS / VIIRS / Armonizado / Predicción experimental**, calendario histórico,
 comparación de sensores, vista regional inmersiva y una estrella guardiana («Vigía») que representa al sistema de observación.

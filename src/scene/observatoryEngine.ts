@@ -326,18 +326,19 @@ export class ObservatoryEngine {
     this.updateMascot(t, dt, width, height, altitude);
 
     if (this.frameListeners.size) {
+      const canvasRect = this.canvas.getBoundingClientRect();
       const info: FrameInfo = {
         width,
         height,
         altitude,
-        mascotScreen: this.mascotScreen,
+        mascotScreen: this.mascotScreen ? { ...this.mascotScreen, x: this.mascotScreen.x + canvasRect.left, y: this.mascotScreen.y + canvasRect.top } : null,
         project: (lat, lng, alt = 0) => {
           const p = polarToCartesian(lat, lng, alt, new THREE.Vector3());
           const toCam = camera.position.clone().sub(p).normalize();
           if (p.clone().normalize().dot(toCam) < 0.02) return null;
           p.project(camera);
           if (p.z > 1) return null;
-          return { x: ((p.x + 1) / 2) * width, y: ((1 - p.y) / 2) * height };
+          return { x: canvasRect.left + ((p.x + 1) / 2) * width, y: canvasRect.top + ((1 - p.y) / 2) * height };
         },
       };
       this.frameListeners.forEach((fn) => fn(info));

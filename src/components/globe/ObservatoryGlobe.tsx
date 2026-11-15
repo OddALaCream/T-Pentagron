@@ -15,7 +15,7 @@ import { appConfig } from '@/config/app';
 import { env } from '@/config/env';
 import { insideBolivia } from '@/lib/geo/bolivia';
 import { useGlobeSnapshot, useRegions } from '@/hooks/data';
-import { useViewport } from '@/hooks/useViewport';
+import { useElementSize, useViewport } from '@/hooks/useViewport';
 import { CATEGORY } from '@/lib/science/categories';
 import { angularDistance, formatLatLng, shortH3 } from '@/lib/geo/h3';
 import { useReducedMotion, useStore } from '@/state/store';
@@ -70,6 +70,10 @@ export default function ObservatoryGlobe() {
   const engineRef = useRef<ObservatoryEngine | null>(null);
   const [ready, setReady] = useState(false);
   const viewport = useViewport();
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapSize = useElementSize(mapRef);
+  const mapHeightRef = useRef(viewport.height);
+  useEffect(() => { mapHeightRef.current = mapSize?.height ?? viewport.height; }, [mapSize, viewport.height]);
   const reduced = useReducedMotion();
 
   const settings = useStore((s) => s.settings);
@@ -117,7 +121,7 @@ export default function ObservatoryGlobe() {
         const p = povRef.current;
         setCam((prev) => {
           const displayRes = displayResolution(p.altitude, prev.displayRes, appConfig.resolutionThresholds);
-          const symbolRes = symbolResolution(p.altitude, window.innerHeight);
+          const symbolRes = symbolResolution(p.altitude, mapHeightRef.current);
           const moved = angularDistance(prev, p) > 0.12 || Math.abs(prev.altitude - p.altitude) / prev.altitude > 0.15;
           if (displayRes === prev.displayRes && symbolRes === prev.symbolRes && !moved) return prev;
           return { altitude: p.altitude, lat: p.lat, lng: p.lng, displayRes, symbolRes };
@@ -395,12 +399,10 @@ export default function ObservatoryGlobe() {
     engineRef.current?.setFocus(selectionCenter);
   }, [ready, selectionCenter]);
 
-  // Desplazamiento de la vista cuando hay panel lateral (solo escritorio).
+  // Canvas dimensions already reserve the real panel width; avoid shifting twice.
   useEffect(() => {
-    const wide = viewport.width >= 1100;
-    const panelWidth = panelExpanded ? Math.min(760, viewport.width * 0.52) : Math.min(440, viewport.width * 0.34);
-    engineRef.current?.setViewShift(wide && panelOpen && view === 'global' ? panelWidth * 0.5 : 0);
-  }, [ready, panelOpen, panelExpanded, viewport.width, view]);
+    engineRef.current?.setViewShift(0);
+  }, [ready]);
 
   // Rotación automática.
   useEffect(() => {
@@ -543,11 +545,11 @@ export default function ObservatoryGlobe() {
   }, []);
 
   return (
-    <div className="globe-layer" aria-label="Planeta Tierra interactivo">
+    <div ref={mapRef} className={`globe-layer ${phase === 'observatory' && view === 'global' ? 'is-observing' : ''} ${panelOpen ? 'has-inspector' : ''} ${panelExpanded ? 'is-panel-expanded' : ''}`} aria-label="Planeta Tierra interactivo">
       <Globe
         ref={globeRef}
-        width={viewport.width}
-        height={viewport.height}
+        width={mapSize?.width ?? viewport.width}
+        height={mapSize?.height ?? viewport.height}
         animateIn={false}
         backgroundColor="#010309"
         globeMaterial={earth.material}

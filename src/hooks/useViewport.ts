@@ -1,9 +1,26 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 
 export interface ViewportSize {
   width: number;
   height: number;
+}
+
+/** The globe follows the space left by controls and panels, not the whole window. */
+export function useElementSize(ref: RefObject<HTMLElement | null>): ViewportSize | null {
+  const [size, setSize] = useState<ViewportSize | null>(null);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.max(1, Math.round(entry.contentRect.width));
+      const height = Math.max(1, Math.round(entry.contentRect.height));
+      setSize(previous => previous?.width === width && previous.height === height ? previous : { width, height });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+  return size;
 }
 
 /** Tamaño de la ventana (con rebote mínimo). */

@@ -19,6 +19,14 @@ $PY -m firesight.tests.test_integrity
 FIRESIGHT_DATA=data/firesight_holdout FIRESIGHT_YEARS=2012-2017 $PY -m firesight.fetch
 FIRESIGHT_DATA=data/firesight_holdout FIRESIGHT_YEARS=2012-2017 $PY -m firesight.index_h3
 $PY -m firesight.evaluate_external data/firesight_holdout/processed 2013-2017
-# 6. artefacto liviano que sirve backend/predictions.py (sin sklearn)
-$PY -m firesight.export_serving 2024
+# 6. artefacto liviano que sirve backend/predictions.py (sin sklearn).
+#    El modelo es nuevo: se borra la tarjeta anterior para no mezclar años exportados con otro modelo.
+rm -f data/models/model_card.json
+$PY -m firesight.export_serving 2024   # validación (versionado en git)
+$PY -m firesight.export_serving 2025   # prueba (solo local, ver .gitignore)
+# 7. Modelo A para el observatorio (solo local): discrepancia diaria 2024-2025 y serie 2001-2025.
+#    2001-2011 solo tiene MODIS (VIIRS S-NPP empieza en 2012).
+FIRESIGHT_DATA=data/firesight_early FIRESIGHT_YEARS=2001-2011 $PY -m firesight.fetch
+FIRESIGHT_DATA=data/firesight_early FIRESIGHT_YEARS=2001-2011 $PY -m firesight.index_h3
+$PY -m firesight.export_harmonization
 echo "Listo. Métricas en firesight/metrics/, artefacto en data/models/"

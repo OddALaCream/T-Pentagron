@@ -14,7 +14,7 @@ import pandas as pd
 import requests
 
 from .config import (AOI, FIRMS_COUNTRY, FIRMS_SOURCES, FIRMS_URL, POWER_PARAMS, POWER_STEP,
-                     POWER_URL, RAW, YEARS)
+                     POWER_URL, RAW, VIIRS_FIRST_YEAR, YEARS)
 
 BUF = 0.1  # pequeño margen para no perder celdas H3 del borde
 
@@ -84,6 +84,9 @@ def fetch_firms():
     for sensor, src in FIRMS_SOURCES.items():
         parts = []
         for y in YEARS:
+            if sensor == "VIIRS" and y < VIIRS_FIRST_YEAR:
+                print(f"[FIRMS] VIIRS {y}: no existe (S-NPP desde {VIIRS_FIRST_YEAR}); solo MODIS")
+                continue
             url = FIRMS_URL.format(src=src, year=y)
             dest = FIRMS_COUNTRY / f"{src}_{y}_Bolivia.csv"
             print(f"[FIRMS] {sensor} {y}")
@@ -109,12 +112,16 @@ def fetch_firms():
             days = df.groupby("acq_date").size().rename("n_country").reset_index()
             days["sensor"] = sensor
             parts_days.append(days)
-        out = pd.concat(parts, ignore_index=True)
+        # años solo-MODIS (antes de 2012): VIIRS queda vacío y el cubo lo marca como no disponible
+        out = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=EMPTY_COLUMNS)
         out.to_csv(RAW / f"{sensor.lower()}_raw.csv", index=False)
         print(f"  -> {sensor.lower()}_raw.csv: {len(out):,} detecciones en AOI")
 
 
 parts_days = []
+EMPTY_COLUMNS = ["latitude", "longitude", "acq_date", "acq_time", "satellite", "instrument", "confidence", "version",
+                 "frp", "daynight", "type", "country_detections_on_day", "sensor", "source_file", "source_url",
+                 "download_date"]
 
 
 def fetch_power():

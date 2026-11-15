@@ -24,7 +24,28 @@ El backend **no necesita** el entorno de entrenamiento. Basta con `data/models/`
 |---|---|
 | `predictions_2024.parquet` | Probabilidad calibrada t+1 de las 4.067 celdas de la zona, cada día de 2024 |
 | `explanations_2024.parquet` | Explicación local exacta del bosque: sesgo + Σ aportes de las 23 variables = probabilidad del bosque (error < 1e-14). Cubre las celdas con p ≥ 5 % o entre las 30 más altas del día (≈104 mil celdas-día) |
-| `model_card.json` | Versión, umbral F1, métricas (validación, prueba y validación externa), cobertura |
+| `model_card.json` | Versión, umbral F1, métricas (validación, prueba y validación externa), cobertura y años exportados (`years`) |
+| `predictions_2025.parquet`, `explanations_2025.parquet` | Lo mismo para 2025, el año de prueba. **Solo en local** (`.gitignore`); el backend los sirve si están |
+
+| `harmonization_2024.parquet`, `harmonization_2025.parquet`, `harmonization_monthly.parquet`, `harmonization_card.json` | Modelo A para el inspector del globo: MODIS crudo, S-NPP observado y MODIS armonizado por celda y día (2024–2025) y por celda y mes (2001–2025). **Solo en local.** Se generan con `python -m firesight.export_harmonization` |
+
+### Modelo A en el observatorio
+
+El globo sigue usando el índice exploratorio del equipo: el Modelo A convierte MODIS a la escala de **un solo** VIIRS
+(S-NPP), mientras que el globo suma tres (S-NPP, NOAA-20, NOAA-21), que detectan unas 3 veces más. Reemplazar el índice
+dejaba en cero un tercio de las celdas activas de la zona piloto en 2024. Por eso el Modelo A aparece en la pestaña
+**Sensores** del inspector, para celdas y regiones de la zona piloto:
+
+- **Discrepancia diaria** (`/harmonization/series`): lo que S-NPP habría visto según MODIS, frente a lo que vio.
+  En ago–oct 2024 el armonizado queda un 11 % por debajo de S-NPP (MODIS crudo: 5,2 veces por debajo).
+- **Serie 2001–2025** (`/harmonization/long-series`): un solo registro en escala S-NPP. Antes de 2012 no hay VIIRS y la
+  serie es una extrapolación; hasta julio de 2002 solo operaba Terra. Entre 2015 y 2025 el armonizado anual queda a
+  ±10 % del S-NPP observado; en 2012–2014, entre 24 % y 30 % por encima.
+
+Los conteos MODIS del Modelo A (archivo por país) coinciden exactamente con los del observatorio (descarga `DL_FIRE`)
+en las mismas celdas: lo verifica `backend/test_harmonization.py`.
+
+`export_serving` acumula años en `model_card.json` y se niega a agregar un año exportado con otro modelo (otra versión o umbral). Al reentrenar, `run_models.sh` borra la tarjeta y reexporta 2024 y 2025.
 
 La API sirve solo las **3.642 celdas que tocan Bolivia**. El recuadro de la zona piloto cruza a Brasil, donde los archivos FIRMS de Bolivia no tienen detecciones, así que esas celdas se descartan.
 
@@ -90,6 +111,9 @@ firesight/.venv/bin/python -m firesight.tests.test_no_leakage    # features caus
 firesight/.venv/bin/python -m firesight.tests.test_integrity     # 7 pruebas: etiquetas vs. detecciones crudas, armonización, modelos
 backend/.venv/bin/python -m unittest backend.test_predictions -v  # 8 pruebas de la API de predicción
 ```
+
+El backend no depende de sklearn: sus 12 pruebas (`test_integration` + `test_predictions`) pasan con Python 3.13 y 3.14.6.
+El reentrenamiento (`firesight/.venv`) está probado con Python 3.8 y 3.13.
 
 ## Limitaciones
 

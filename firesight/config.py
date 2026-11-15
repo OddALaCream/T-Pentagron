@@ -30,6 +30,7 @@ TEST_YEARS = [2025]                       # prueba: solo se usa para reportar
 
 # Fuentes FIRMS (archivo anual por país, Standard Processing cuando está disponible)
 FIRMS_SOURCES = {"MODIS": "modis", "VIIRS": "viirs-snpp"}
+VIIRS_FIRST_YEAR = 2012   # VIIRS S-NPP: archivo FIRMS desde ene-2012; antes solo hay MODIS (desde nov-2000)
 FIRMS_URL = "https://firms.modaps.eosdis.nasa.gov/data/country/{src}/{year}/{src}_{year}_Bolivia.csv"
 
 # NASA POWER (diario). Grilla ~0.5°, más gruesa que H3 res 6.

@@ -9,7 +9,8 @@ Salidas en DIR_SALIDA:
   explanations_{AÑO}.parquet  h3_id, issue_date, forest_bias, forest_raw, v_<var>, c_<var> (23 variables)
                               solo celdas con probabilidad >= EXPLAIN_MIN_P o entre las 30 de mayor
                               probabilidad de ese día
-  model_card.json             versión, métricas (validación, prueba, externa, OOF), umbral, variables, avisos
+  model_card.json             versión, métricas (validación, prueba, externa, OOF), umbral, variables, avisos.
+                              Acumula los años exportados en "years"; se niega a mezclar años de modelos distintos.
 """
 import json
 import sys
@@ -51,6 +52,21 @@ def forest_contributions(rf, X):
         contrib += (est.decision_path(Xa) @ D).toarray()
     n = len(rf.estimators_)
     return bias / n, contrib / n
+
+
+def merged_years(path, bundle, thr):
+    """Años ya exportados en la tarjeta existente, si salieron del mismo modelo (versión y umbral)."""
+    if not path.exists():
+        return {}
+    old = json.loads(path.read_text())
+    if old["model_version"] != bundle["version"] or abs(old["threshold_f1"] - thr) > 1e-12:
+        raise SystemExit(f"{path} viene de otro modelo ({old['model_version']}, umbral {old['threshold_f1']:.4f}) "
+                         f"que el actual ({bundle['version']}, umbral {thr:.4f}): reexportar todos los años o usar otra carpeta.")
+    if "years" in old:
+        return old["years"]
+    ex = old.get("explanations", {})   # tarjeta de un solo año (formato anterior)
+    return {str(old["year"]): {"evaluation_split": old["evaluation_split"], "explained_rows": ex.get("rows"),
+                               "max_decomposition_error": ex.get("max_decomposition_error")}}
 
 
 def main(year=2024, out=SERVING):
@@ -95,14 +111,15 @@ def main(year=2024, out=SERVING):
            for p_ in sorted(METRICS.glob("external_validation_*-*.json"))}
     oof = METRICS / "oof_metrics.json"
     split = "validation" if year in VAL_YEARS else "test" if year in TEST_YEARS else "external"
+    years = merged_years(out / "model_card.json", bundle, thr)
+    years[str(year)] = {"evaluation_split": split, "explained_rows": int(len(ex)), "max_decomposition_error": err}
     card = {
         "model_version": bundle["version"], "harmonizer_version": bundle["harmonizer_version"],
-        "year": year, "evaluation_split": split, "threshold_f1": thr,
+        "years": dict(sorted(years.items())), "threshold_f1": thr,
         "region": {"id": "chiquitania", "name": "Chiquitanía (Santa Cruz)", "h3_resolution": 6,
                    "cell_count": int(n), "bbox": [float(cells.lon.min()), float(cells.lat.min()),
                                                   float(cells.lon.max()), float(cells.lat.max())]},
-        "explanations": {"min_probability": EXPLAIN_MIN_P, "top_per_day": TOP_PER_DAY, "rows": int(len(ex)),
-                         "max_decomposition_error": err,
+        "explanations": {"min_probability": EXPLAIN_MIN_P, "top_per_day": TOP_PER_DAY,
                          "meaning": "Aporte local de cada variable a la probabilidad del bosque, antes de la calibración isotónica."},
         "feature_order": list(rf.feature_names_in_),
         "prediction_metrics": pm,

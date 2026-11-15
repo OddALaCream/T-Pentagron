@@ -1,8 +1,18 @@
 {
  "model_version": "pred-1.0.0",
  "harmonizer_version": "harm-1.0.0",
- "year": 2024,
- "evaluation_split": "validation",
+ "years": {
+  "2024": {
+   "evaluation_split": "validation",
+   "explained_rows": 104091,
+   "max_decomposition_error": 1.9984014443252818e-15
+  },
+  "2025": {
+   "evaluation_split": "test",
+   "explained_rows": 47725,
+   "max_decomposition_error": 2.220446049250313e-15
+  }
+ },
  "threshold_f1": 0.3504273504273504,
  "region": {
   "id": "chiquitania",
@@ -19,8 +29,6 @@
  "explanations": {
   "min_probability": 0.05,
   "top_per_day": 30,
-  "rows": 104091,
-  "max_decomposition_error": 1.9984014443252818e-15,
   "meaning": "Aporte local de cada variable a la probabilidad del bosque, antes de la calibración isotónica."
  },
  "feature_order": [

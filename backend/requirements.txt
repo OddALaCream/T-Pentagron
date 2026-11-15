@@ -1,0 +1,8 @@
+polars==2.1.0
+pyarrow==26.0.1
+h3==4.5.0
+duckdb==2.0.0
+fastapi==0.163.0
+uvicorn==0.54.0
+httpx==0.28.1
+shapely==2.2.0

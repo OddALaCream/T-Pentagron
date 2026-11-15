@@ -1,0 +1,3 @@
+# Preserve original data bytes on every platform.
+*.csv -text -diff
+*.parquet binary

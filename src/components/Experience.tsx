@@ -6,6 +6,7 @@
 import dynamic from 'next/dynamic';
 import { Component, useEffect, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import gsap from 'gsap';
 import { useDataRange } from '@/hooks/data';
 import { useKeyboardShortcuts, usePlayback, useSystemPreferences, useUrlSync } from '@/hooks/environment';
 import { useStore } from '@/state/store';
@@ -15,6 +16,10 @@ import { BrandMark } from './observatory/BrandMark';
 import { brand } from '@/config/brand';
 import { getDataService } from '@/lib/data/service';
 import { globeBridge } from '@/scene/bridge';
+
+// Las coreografías siguen el tiempo real aunque haya pocos fotogramas (equipos modestos o
+// pestañas ralentizadas): así terminan a tiempo en lugar de estirarse indefinidamente.
+gsap.ticker.lagSmoothing(0);
 
 const ObservatoryGlobe = dynamic(() => import('./globe/ObservatoryGlobe'), { ssr: false, loading: () => null });
 const IntroSequence = dynamic(() => import('./intro/IntroSequence'), { ssr: false, loading: () => null });

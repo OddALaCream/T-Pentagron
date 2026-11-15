@@ -24,6 +24,13 @@ export function PredictionModule({ info }: { info: TargetInfo }) {
   const isRegion = info.kind === 'region' || (detail?.distribution?.length ?? 0) > 0;
 
   if (env.dataMode === 'api') return <div className="module"><Note>Predicción no disponible: todavía no existe un modelo entrenado.</Note></div>;
+  if (!detail && isFetching) {
+    return (
+      <div className="module">
+        <p className="muted small" role="status">Calculando el pronóstico experimental…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="module">

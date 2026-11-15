@@ -87,6 +87,12 @@ export function useModelInfo() {
   return useQuery({ queryKey: ['model'], queryFn: async () => (await svc()).getModelInfo(), staleTime: Infinity });
 }
 
+/** true si el backend sirve un modelo de predicción (en modo mock, siempre). */
+export function usePredictionAvailable() {
+  const { data } = useModelInfo();
+  return data !== undefined && data.status !== 'unavailable';
+}
+
 export function useMetadata() {
   return useQuery({ queryKey: ['metadata'], queryFn: async () => (await svc()).getMetadata(), staleTime: Infinity });
 }

@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { ArrowDownRight, ArrowRight, ArrowUpRight, CalendarDays, Copy, Check, Orbit, Radar, Sparkles } from 'lucide-react';
-import { useSeries } from '@/hooks/data';
+import { usePredictionAvailable, useSeries } from '@/hooks/data';
 import { addDays, formatDate, formatMonth, monthEnd, monthStart } from '@/lib/time/dates';
 import { CATEGORY, classify, LAYERS, SENSOR_COLORS } from '@/lib/science/categories';
 import { cellCenter, formatLatLng } from '@/lib/geo/h3';
@@ -25,6 +25,7 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
   const setPanel = useStore((s) => s.setPanel);
   const setTransition = useStore((s) => s.setTransition);
   const [copied, setCopied] = useState(false);
+  const predictionAvailable = usePredictionAvailable();
 
   const from = addDays(date, -59);
   const { data: series, isLoading } = useSeries(info.target, from < range.start ? range.start : from, date);
@@ -114,7 +115,7 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
         <Note tone="warn">Sin detecciones registradas este día. Cobertura desconocida; no equivale a «sin actividad».</Note>
       )}
 
-      {layer === 'prediction' ? <Note>Predicción no disponible: no existe un modelo entrenado.</Note> : <div className="stats-grid" data-holo-item>
+      {layer === 'prediction' && !predictionAvailable ? <Note>Predicción no disponible: no existe un modelo entrenado.</Note> : <div className="stats-grid" data-holo-item>
         {layer !== 'modis' && <Stat label="VIIRS · original" value={today?.viirs ?? '—'} unit="det." tone={SENSOR_COLORS.VIIRS} />}
         {layer !== 'viirs' && <Stat label="MODIS · original" value={today?.modis ?? '—'} unit="det." tone={SENSOR_COLORS.MODIS} />}
         {layer === 'harmonized' && <Stat label="Índice exploratorio" value={today?.index == null ? '—' : today.index.toFixed(2)} tone={SENSOR_COLORS.harmonized} hint="Normalización robusta por sensor; no calibración física" />}

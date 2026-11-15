@@ -23,7 +23,7 @@ export const brand = {
     'https://www.spaceappschallenge.org/2026/challenges/harmonization-of-modis-and-viirs-hot-spots/',
   pilot: {
     regionId: env.dataMode === 'api' ? 'bolivia' : 'chiquitania',
-    label: env.dataMode === 'api' ? 'Bolivia · archivo 2024' : 'Chiquitanía · Santa Cruz, Bolivia',
+    label: env.dataMode === 'api' ? 'Bolivia · archivo FIRMS' : 'Chiquitanía · Santa Cruz, Bolivia',
   },
 } as const;
 

@@ -315,6 +315,87 @@ export function ScatterSensors({ points, factor }: { points: SeriesPoint[]; fact
   );
 }
 
+/* ------------------------------------------------------------------ */
+export interface LineSeries {
+  label: string;
+  color: string;
+  values: (number | null)[];
+  dashed?: boolean;
+  /** Dibuja barras en lugar de línea (útil para el valor observado). */
+  bars?: boolean;
+}
+
+/** Varias series sobre el mismo eje X. null corta la línea (sensor no operativo, no es cero). */
+export function LineChart({
+  labels, series, shade, height = 150, format = (v) => v.toLocaleString('es-BO', { maximumFractionDigits: 0 }), ariaLabel,
+}: {
+  labels: string[];
+  series: LineSeries[];
+  /** Tramo sombreado [desde, hasta] (índices) con su leyenda, p. ej. años extrapolados. */
+  shade?: { from: number; to: number; label: string };
+  height?: number;
+  format?: (v: number) => string;
+  ariaLabel: string;
+}) {
+  const gid = useId().replace(/:/g, '');
+  const [hover, setHover] = useState<number | null>(null);
+  const width = 600;
+  const n = labels.length;
+  const bw = width / Math.max(1, n);
+  const max = Math.max(1e-6, ...series.flatMap((s) => s.values.map((v) => v ?? 0)));
+  const top = 10;
+  const y = (v: number) => height - 4 - (v / max) * (height - 4 - top);
+  const x = (i: number) => i * bw + bw / 2;
+  const path = (values: (number | null)[]) => {
+    let d = '';
+    let pen = false;
+    values.forEach((v, i) => {
+      if (v === null) { pen = false; return; }
+      d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)} `;
+      pen = true;
+    });
+    return d;
+  };
+  const h = hover ?? n - 1;
+  return (
+    <div className="sensor-chart">
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none" role="img"
+        aria-label={ariaLabel} onMouseLeave={() => setHover(null)}>
+        <HatchDefs id={`h${gid}`} />
+        {shade && shade.to >= shade.from && (
+          <rect x={shade.from * bw} y={0} width={(shade.to - shade.from + 1) * bw} height={height} fill={`url(#h${gid})`} opacity={0.5} />
+        )}
+        {series.filter((s) => s.bars).map((s) => s.values.map((v, i) => v === null ? null : (
+          <rect key={`${s.label}${i}`} x={i * bw + bw * 0.18} y={y(v)} width={bw * 0.64} height={Math.max(0, height - 4 - y(v))}
+            fill={s.color} opacity={0.55} rx={0.6} />
+        )))}
+        {series.filter((s) => !s.bars).map((s) => (
+          <path key={s.label} d={path(s.values)} fill="none" stroke={s.color} strokeWidth="1.7"
+            strokeDasharray={s.dashed ? '4 3' : undefined} vectorEffect="non-scaling-stroke" />
+        ))}
+        {labels.map((_, i) => (
+          <rect key={i} x={i * bw} y={0} width={bw} height={height} fill={i === hover ? 'rgba(255,255,255,0.06)' : 'transparent'}
+            onMouseEnter={() => setHover(i)} />
+        ))}
+        <line x1={0} x2={width} y1={height - 4} y2={height - 4} stroke="rgba(220,235,255,0.35)" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="sensor-chart__axis">
+        <span>{labels[0] ?? ''}</span>
+        {shade && <span className="muted">{shade.label}</span>}
+        <span>{labels[n - 1] ?? ''}</span>
+      </div>
+      {n > 0 && (
+        <div className="sensor-chart__readout" aria-live="polite">
+          <strong>{labels[h]}</strong>
+          {series.map((s) => (
+            <span key={s.label} style={{ color: s.color }}>{s.label} {s.values[h] === null ? '—' : format(s.values[h]!)}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function yearsInRange(start: string, end: string): number[] {
   const out: number[] = [];
   for (let y = yearOf(start); y <= yearOf(end); y++) out.push(y);

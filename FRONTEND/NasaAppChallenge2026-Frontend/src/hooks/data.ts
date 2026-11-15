@@ -66,6 +66,26 @@ export function useSeries(target: SeriesTarget | null, from: ISODate, to: ISODat
   });
 }
 
+/** Modelo A: MODIS armonizado frente a S-NPP (solo API, zona piloto). data = null fuera de cobertura. */
+export function useHarmonization(target: SeriesTarget | null, from: ISODate, to: ISODate) {
+  return useQuery({
+    queryKey: ['harmonization', targetKey(target), from, to],
+    queryFn: async () => (await svc()).getHarmonization?.(target!, from, to) ?? null,
+    enabled: Boolean(target),
+    placeholderData: keepPreviousData,
+    staleTime: 10 * 60_000,
+  });
+}
+
+export function useLongSeries(target: SeriesTarget | null) {
+  return useQuery({
+    queryKey: ['long-series', targetKey(target)],
+    queryFn: async () => (await svc()).getLongSeries?.(target!) ?? null,
+    enabled: Boolean(target),
+    staleTime: Infinity,
+  });
+}
+
 export function useDetections(h3: H3Index | null, date: ISODate) {
   return useQuery({
     queryKey: ['detections', h3, date],

@@ -2,6 +2,7 @@
 import { forwardRef, useId, useRef, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { env } from '@/config/env';
+import { useArchiveYears } from '@/state/store';
 
 export const IconButton = forwardRef<
   HTMLButtonElement,
@@ -148,7 +149,8 @@ export function Toggle({ checked, onChange, label, description, disabled }: { ch
 }
 
 export function DemoBadge({ compact = false }: { compact?: boolean }) {
-  if (env.dataMode === 'api') return <span className="api-badge">{compact ? 'API' : 'NASA FIRMS · Bolivia 2024'}</span>;
+  const years = useArchiveYears();
+  if (env.dataMode === 'api') return <span className="api-badge">{compact ? 'API' : `NASA FIRMS · Bolivia ${years}`}</span>;
   return (
     <span className="demo-badge" title="Todos los valores mostrados son datos simulados de demostración, no detecciones oficiales de NASA FIRMS.">
       <span className="demo-badge__dot" aria-hidden="true" />

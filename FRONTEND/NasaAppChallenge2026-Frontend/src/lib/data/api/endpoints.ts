@@ -18,6 +18,8 @@
  *   GET /model                                 → ModelInfoDTO
  *   GET /weather?region=…&from=…&to=…          → WeatherDTO[]
  *   GET /news?region=…                         → NewsDTO[]   (vacío hasta definir fuentes)
+ *   GET /harmonization/series?h3_id=…|region=…&from=…&to=…   → Modelo A por día (zona piloto, 2024–2025)
+ *   GET /harmonization/long-series?h3_id=…|region=…        → Modelo A por año, 2001–2025
  */
 export const ENDPOINTS = {
   meta: '/meta',
@@ -31,4 +33,6 @@ export const ENDPOINTS = {
   model: '/model',
   weather: '/weather',
   news: '/news',
+  harmonization: '/harmonization/series',
+  longSeries: '/harmonization/long-series',
 } as const;

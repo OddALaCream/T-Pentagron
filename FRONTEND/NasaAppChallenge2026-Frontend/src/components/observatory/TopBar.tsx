@@ -5,7 +5,7 @@ import { env } from '@/config/env';
 import { useGlobeSnapshot, usePredictionAvailable } from '@/hooks/data';
 import { LAYERS } from '@/lib/science/categories';
 import { formatDate, formatMonth } from '@/lib/time/dates';
-import { useStore } from '@/state/store';
+import { useArchiveYears, useStore } from '@/state/store';
 import { DemoBadge, IconButton, Segmented } from '@/components/ui/primitives';
 import { BrandMark } from './BrandMark';
 import { useEffect, useRef } from 'react';
@@ -23,6 +23,7 @@ export function TopBar() {
     observer.observe(header);
     return () => observer.disconnect();
   }, []);
+  const years = useArchiveYears();
   const layer = useStore((s) => s.layer);
   const predictionAvailable = usePredictionAvailable();
   const setLayer = useStore((s) => s.setLayer);
@@ -78,7 +79,7 @@ export function TopBar() {
               {layer === 'harmonized' && <span><b>{t.meanIndex.toFixed(2)}</b> índice exploratorio medio</span>}
               {layer === 'harmonized' && <span><b>{nf.format(t.activeCells)}</b> celdas activas</span>}
               {t.anomalies > 0 && <span className="telemetry__anomaly"><b>{t.anomalies}</b> anomalías</span>}
-              <span className="muted">{env.dataMode === 'api' ? 'Bolivia 2024 · type=0 · cobertura desconocida' : `${Math.round(missingShare * 100)} % sin obs.`}</span>
+              <span className="muted">{env.dataMode === 'api' ? `Bolivia ${years} · type=0 · cobertura desconocida` : `${Math.round(missingShare * 100)} % sin obs.`}</span>
             </>
           )}
           <span className="telemetry__layer muted">{active.description}</span>

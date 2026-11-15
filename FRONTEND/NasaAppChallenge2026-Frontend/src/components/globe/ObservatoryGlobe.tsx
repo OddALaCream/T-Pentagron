@@ -18,7 +18,7 @@ import { useGlobeSnapshot, useRegions } from '@/hooks/data';
 import { useElementSize, useViewport } from '@/hooks/useViewport';
 import { CATEGORY } from '@/lib/science/categories';
 import { angularDistance, formatLatLng, shortH3 } from '@/lib/geo/h3';
-import { useReducedMotion, useStore } from '@/state/store';
+import { archiveYears, useReducedMotion, useStore } from '@/state/store';
 import { POKE_LINES, useNarrator } from '@/state/narrator';
 import { createEarthMaterial } from '@/scene/earth';
 import { ObservatoryEngine } from '@/scene/observatoryEngine';
@@ -427,7 +427,7 @@ export default function ObservatoryGlobe() {
   useEffect(() => {
     if (!ready || phase !== 'observatory' || scanNonce === 0) return;
     engineRef.current?.triggerScan({ hide: firstScan.current });
-    if (firstScan.current) say(env.dataMode === 'api' ? 'NASA FIRMS · Bolivia 2024 · detecciones históricas' : `Escaneo inicial · ${regionsRef.current.length || 13} regiones de demostración`, 'scan', 4200);
+    if (firstScan.current) say(env.dataMode === 'api' ? `NASA FIRMS · Bolivia ${archiveYears()} · detecciones históricas` : `Escaneo inicial · ${regionsRef.current.length || 13} regiones de demostración`, 'scan', 4200);
     firstScan.current = false;
   }, [ready, phase, scanNonce, say]);
 

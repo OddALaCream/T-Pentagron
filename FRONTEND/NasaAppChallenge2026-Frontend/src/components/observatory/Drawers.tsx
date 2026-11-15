@@ -10,7 +10,7 @@ import { env } from '@/config/env';
 import { useGlobeSnapshot, useMetadata, useRegions } from '@/hooks/data';
 import { CATEGORY, LEGEND_ORDER } from '@/lib/science/categories';
 import { regionGlances } from '@/scene/globeModel';
-import { isReducedMotion, useStore, type Drawer, type Quality } from '@/state/store';
+import { isReducedMotion, useArchiveYears, useStore, type Drawer, type Quality } from '@/state/store';
 import { DemoBadge, Note, SectionTitle, Segmented, Toggle } from '@/components/ui/primitives';
 import { SymbolIcon } from '@/components/ui/SymbolIcon';
 
@@ -85,6 +85,7 @@ function Item({ children }: { children: ReactNode }) {
 function RegionsDrawer() {
   const { data: regions } = useRegions();
   const { data: snap } = useGlobeSnapshot();
+  const years = useArchiveYears();
   const layer = useStore((s) => s.layer);
   const granularity = useStore((s) => s.granularity);
   const select = useStore((s) => s.select);
@@ -106,7 +107,7 @@ function RegionsDrawer() {
         </label>
       </Item>
       <Item>
-        <p className="muted small">{env.dataMode === 'api' ? 'Bolivia · archivo 2024. Detecciones filtradas por el polígono Natural Earth. Selecciona la región para consultar su historia; el calendario conserva la fecha actual. No hay datos departamentales asignados.' : 'Regiones de demostración.'}</p>
+        <p className="muted small">{env.dataMode === 'api' ? `Bolivia · archivo ${years}. Detecciones filtradas por el polígono Natural Earth. Selecciona la región para consultar su historia; el calendario conserva la fecha actual. No hay datos departamentales asignados.` : 'Regiones de demostración.'}</p>
       </Item>
       <ul className="region-list">
         {sorted.map((r) => {
@@ -290,9 +291,10 @@ function SettingsDrawer() {
 /* ------------------------------------------------------------------ */
 function AboutDrawer() {
   const { data: meta } = useMetadata();
+  const years = useArchiveYears();
   return (
     <div className="prose">
-      <Item>{env.dataMode === 'mock' ? <DemoBadge /> : <span className="api-badge">NASA FIRMS ? Bolivia 2024 ? type=0</span>}</Item>
+      <Item>{env.dataMode === 'mock' ? <DemoBadge /> : <span className="api-badge">{`NASA FIRMS · Bolivia ${years} · type=0`}</span>}</Item>
       <Item>
         <p>
           <strong>{brand.fullName}</strong> explora la actividad térmica histórica observada por los sensores MODIS y VIIRS,

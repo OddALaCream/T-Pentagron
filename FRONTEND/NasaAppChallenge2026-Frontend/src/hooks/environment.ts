@@ -131,7 +131,7 @@ export function useUrlSync() {
     const params = new URLSearchParams(window.location.search);
     const s = useStore.getState();
     const date = params.get('date');
-    if (isValidISODate(date)) s.setDate(date);
+    if (isValidISODate(date)) s.requestDate(date);
     const layer = params.get('layer');
     if (layer === 'modis' || layer === 'viirs' || layer === 'harmonized' || layer === 'prediction') s.setLayer(layer);
     if (params.get('g') === 'month') s.setGranularity('month');

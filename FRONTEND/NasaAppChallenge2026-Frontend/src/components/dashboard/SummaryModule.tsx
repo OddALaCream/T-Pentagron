@@ -5,7 +5,7 @@ import { usePredictionAvailable, useSeries } from '@/hooks/data';
 import { addDays, formatDate, formatMonth, monthEnd, monthStart } from '@/lib/time/dates';
 import { CATEGORY, classify, LAYERS, SENSOR_COLORS } from '@/lib/science/categories';
 import { cellCenter, formatLatLng } from '@/lib/geo/h3';
-import { useStore } from '@/state/store';
+import { useArchiveYears, useStore } from '@/state/store';
 import { Sparkline } from '@/components/charts/charts';
 import { SymbolIcon } from '@/components/ui/SymbolIcon';
 import { Note, SectionTitle, Stat } from '@/components/ui/primitives';
@@ -19,6 +19,7 @@ function sum(points: SeriesPoint[], key: 'viirs' | 'modis' | 'index'): number {
 
 export function SummaryModule({ info }: { info: TargetInfo }) {
   const date = useStore((s) => s.date);
+  const years = useArchiveYears();
   const layer = useStore((s) => s.layer);
   const granularity = useStore((s) => s.granularity);
   const range = useStore((s) => s.dataRange);
@@ -107,7 +108,7 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
             {env.dataMode === 'api' ? (today?.availability === 'observed' ? 'Detecciones de ambas familias; cobertura desconocida' : today?.availability === 'partial' ? 'Detecciones de una familia; cobertura desconocida' : 'Sin detecciones registradas; cobertura desconocida') : today?.availability === 'observed' ? 'Observación válida (ambos sensores)' : today?.availability === 'partial' ? 'Parcial (un solo sensor)' : 'Sin observación válida'}
           </dd>
         </div>
-        <div><dt>Fuente</dt><dd>{env.dataMode === 'api' ? 'NASA FIRMS · Bolivia 2024 · type=0' : 'Datos de demostración (FIRMS simulado)'}</dd></div>
+        <div><dt>Fuente</dt><dd>{env.dataMode === 'api' ? `NASA FIRMS · Bolivia ${years} · type=0` : 'Datos de demostración (FIRMS simulado)'}</dd></div>
       </dl>
       </details>
 

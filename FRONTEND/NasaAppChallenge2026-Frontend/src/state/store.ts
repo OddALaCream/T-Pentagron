@@ -69,6 +69,8 @@ interface State {
   transition: null | 'entering' | 'leaving';
   dataRange: { start: ISODate; end: ISODate };
   date: ISODate;
+  /** Fecha pedida en la URL: se reaplica cuando /meta trae el rango real (puede salir del rango provisional). */
+  requestedDate: ISODate | null;
   granularity: Granularity;
   layer: DataLayer;
   playing: boolean;
@@ -88,6 +90,7 @@ interface State {
   finishIntro: () => void;
   replayIntro: () => void;
   setDataRange: (start: ISODate, end: ISODate) => void;
+  requestDate: (date: ISODate) => void;
   setDate: (date: ISODate) => void;
   step: (delta: number) => void;
   setGranularity: (g: Granularity) => void;
@@ -142,6 +145,7 @@ export const useStore = create<State>()(
       transition: null,
       dataRange: env.dataMode === 'api' ? { start: '2024-01-01', end: '2024-12-31' } : { start: '2023-01-01', end: '2026-11-13' },
       date: appConfig.defaultDate,
+      requestedDate: null,
       granularity: 'day',
       layer: appConfig.defaultLayer,
       playing: false,
@@ -161,7 +165,11 @@ export const useStore = create<State>()(
       finishIntro: () => set((s) => (s.phase === 'observatory' ? s : { phase: 'observatory', scanNonce: s.scanNonce + 1 })),
       replayIntro: () => set((s) => ({ phase: 'intro', introRun: s.introRun + 1, drawer: null, playing: false })),
       setDataRange: (start, end) =>
-        set((s) => ({ dataRange: { start, end }, date: clampDate(s.date, start, end) })),
+        set((s) => ({ dataRange: { start, end }, date: clampDate(s.requestedDate ?? s.date, start, end), requestedDate: null })),
+      requestDate: (date) => {
+        const { start, end } = get().dataRange;
+        set({ date: clampDate(date, start, end), requestedDate: date });
+      },
       setDate: (date) => {
         const { start, end } = get().dataRange;
         set({ date: clampDate(date, start, end) });
@@ -240,4 +248,14 @@ export function useReducedMotion(): boolean {
 export function isReducedMotion(): boolean {
   const s = useStore.getState();
   return s.settings.reducedMotion === 'auto' ? s.systemReducedMotion : s.settings.reducedMotion === 'on';
+}
+
+/** Años del archivo que sirve el backend ('2024' o '2024–2025'), según el rango de fechas de /meta. */
+export function archiveYears(range: { start: ISODate; end: ISODate } = useStore.getState().dataRange): string {
+  const [a, b] = [range.start.slice(0, 4), range.end.slice(0, 4)];
+  return a === b ? a : `${a}–${b}`;
+}
+
+export function useArchiveYears(): string {
+  return useStore((s) => archiveYears(s.dataRange));
 }

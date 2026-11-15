@@ -6,8 +6,8 @@
 import { env } from '@/config/env';
 import type {
   ActivityQuery, ActivitySnapshot, CellInfo, DatasetMetadata, DataSourceKind, Detection, H3Index,
-  ISODate, ModelInfo, NewsItem, Prediction, PredictionFeature, Region, SeriesPoint, SeriesTarget,
-  WeatherDaily,
+  HarmonizationSeries, ISODate, LongSeries, ModelInfo, NewsItem, Prediction, PredictionFeature, Region, SeriesPoint,
+  SeriesTarget, WeatherDaily,
 } from '@/lib/types/domain';
 
 export interface PredictionDetail {
@@ -45,6 +45,9 @@ export interface DataService {
   getCellInfo(h3: H3Index): Promise<CellInfo | null>;
   /** Noticias locales: integración futura. Nunca devuelve contenido inventado. */
   getNews(regionId: string): Promise<NewsItem[]>;
+  /** Modelo A FireSight (solo API, zona piloto). null = objetivo o fechas fuera de su cobertura. */
+  getHarmonization?(target: SeriesTarget, from: ISODate, to: ISODate): Promise<HarmonizationSeries | null>;
+  getLongSeries?(target: SeriesTarget): Promise<LongSeries | null>;
 }
 
 let instance: Promise<DataService> | null = null;

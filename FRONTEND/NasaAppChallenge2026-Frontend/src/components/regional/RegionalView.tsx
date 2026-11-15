@@ -10,7 +10,7 @@ import { useGlobeSnapshot, useNews, useRegionMap, useWeather } from '@/hooks/dat
 import { addDays, formatDate } from '@/lib/time/dates';
 import { CATEGORY, classify, LAYERS } from '@/lib/science/categories';
 import { formatLatLng, shortH3 } from '@/lib/geo/h3';
-import { isReducedMotion, useStore } from '@/state/store';
+import { isReducedMotion, useArchiveYears, useStore } from '@/state/store';
 import { DemoBadge, Note, SectionTitle, Segmented, Stat, Toggle } from '@/components/ui/primitives';
 import { SymbolIcon } from '@/components/ui/SymbolIcon';
 import { Sparkline } from '@/components/charts/charts';
@@ -23,6 +23,7 @@ import { env } from '@/config/env';
 export function RegionalView() {
   const regionalId = useStore((s) => s.regionalId);
   const date = useStore((s) => s.date);
+  const years = useArchiveYears();
   const layer = useStore((s) => s.layer);
   const setLayer = useStore((s) => s.setLayer);
   const granularity = useStore((s) => s.granularity);
@@ -121,7 +122,7 @@ export function RegionalView() {
             onTileError={() => setTileError(true)}
           />
           <div className="regional__map-foot">
-            {basemapDef?.dateDependent && <span>Imagen satelital del {formatDate(date)} · celdas: {env.dataMode === 'api' ? 'NASA FIRMS 2024' : 'datos de demostración'}</span>}
+            {basemapDef?.dateDependent && <span>Imagen satelital del {formatDate(date)} · celdas: {env.dataMode === 'api' ? `NASA FIRMS ${years}` : 'datos de demostración'}</span>}
             {tileError && <span className="warn">Algunas teselas no cargaron (sin conexión o sin imagen para esa fecha). La retícula H3 sigue disponible.</span>}
           </div>
         </section>

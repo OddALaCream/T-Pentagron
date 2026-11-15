@@ -11,7 +11,7 @@ import { env } from '@/config/env';
 import { usePredictionAvailable, useRegionMap, useSeries } from '@/hooks/data';
 import { dayIndexFromISO, formatDate, formatMonth, isoFromDayIndex, monthShort, yearOf } from '@/lib/time/dates';
 import { CATEGORY, kindFromIndex, SENSOR_COLORS } from '@/lib/science/categories';
-import { useStore } from '@/state/store';
+import { useArchiveYears, useStore } from '@/state/store';
 import { Segmented } from '@/components/ui/primitives';
 
 export function TimelineDock({ compact = false, measure = true }: { compact?: boolean; measure?: boolean }) {
@@ -32,6 +32,7 @@ export function TimelineDock({ compact = false, measure = true }: { compact?: bo
   }, [measure]);
   const date = useStore((s) => s.date);
   const range = useStore((s) => s.dataRange);
+  const archive = useArchiveYears();
   const playing = useStore((s) => s.playing);
   const speed = useStore((s) => s.speed);
   const granularity = useStore((s) => s.granularity);
@@ -195,7 +196,7 @@ export function TimelineDock({ compact = false, measure = true }: { compact?: bo
         </div>
       </div>
       <div className="timeline__caption muted">
-        {layer === 'prediction' ? (predictionAvailable ? 'Probabilidad experimental de detección t+1 · Modelo B FireSight · zona piloto Chiquitanía' : 'Predicción no disponible · sin modelo entrenado') : layer === 'harmonized' ? 'Índice exploratorio diario 0–1 · normalizado por sensor, sin calibración física' : `Detecciones diarias originales ${layer.toUpperCase()}`} · {region?.name ?? '—'} {env.dataMode === 'mock' ? '(demo)' : '· NASA FIRMS 2024'}
+        {layer === 'prediction' ? (predictionAvailable ? 'Probabilidad experimental de detección t+1 · Modelo B FireSight · zona piloto Chiquitanía' : 'Predicción no disponible · sin modelo entrenado') : layer === 'harmonized' ? 'Índice exploratorio diario 0–1 · normalizado por sensor, sin calibración física' : `Detecciones diarias originales ${layer.toUpperCase()}`} · {region?.name ?? '—'} {env.dataMode === 'mock' ? '(demo)' : `· NASA FIRMS ${archive}`}
       </div>
       </div>
     </section>

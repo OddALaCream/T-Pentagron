@@ -7,6 +7,7 @@ import { useStore } from '@/state/store';
 import { ScatterSensors, SensorChart } from '@/components/charts/charts';
 import { Note, SectionTitle, Segmented, Stat } from '@/components/ui/primitives';
 import type { TargetInfo } from './useTarget';
+import { HarmonizationSection } from './HarmonizationSection';
 import { env } from '@/config/env';
 
 export function SensorsModule({ info }: { info: TargetInfo }) {
@@ -95,6 +96,10 @@ export function SensorsModule({ info }: { info: TargetInfo }) {
           <button type="button" className="btn" onClick={() => setLayer('harmonized')}>Ver armonizado</button>
         </div>
       </div>
+
+      {env.dataMode === 'api' && info.target && (
+        <HarmonizationSection target={info.target} from={from < range.start ? range.start : from} to={date} />
+      )}
     </div>
   );
 }

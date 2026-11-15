@@ -164,6 +164,60 @@ export interface ActivityQuery {
 /** Objetivo de una consulta de serie: una celda H3 o una región completa. */
 export type SeriesTarget = { kind: 'cell'; h3: H3Index } | { kind: 'region'; regionId: string };
 
+/* ------------------------------------------------------------------ */
+/* Modelo A FireSight · armonización MODIS → VIIRS S-NPP (zona piloto) */
+/* ------------------------------------------------------------------ */
+/** Un día: MODIS crudo, S-NPP observado y lo que S-NPP habría visto según MODIS. null = sensor no operativo. */
+export interface HarmonizationPoint {
+  date: ISODate;
+  modis: number | null;
+  viirsSnpp: number | null;
+  modisEq: number | null;
+  uncertainty: number | null;
+  /** Celdas en que el armonizado reemplaza a VIIRS (VIIRS no operativo ese día). */
+  convertedCells: number;
+}
+
+export interface HarmonizationSeries {
+  version: string;
+  reference: string;
+  cellCount: number;
+  points: HarmonizationPoint[];
+  summary: {
+    comparableDays: number;
+    viirsSnppTotal: number | null;
+    modisTotal: number | null;
+    modisEqTotal: number | null;
+    /** (MODIS armonizado − S-NPP) / S-NPP sobre días con ambos sensores, en %. */
+    biasPct: number | null;
+    rawRatio: number | null;
+    meanAbsError: number | null;
+    convertedCellDays: number;
+  };
+  notes: string[];
+}
+
+/** Un año (o mes) de la serie 2001–2025 en escala S-NPP. */
+export interface LongSeriesPoint {
+  period: string;
+  modis: number | null;
+  modisEq: number | null;
+  uncertainty: number | null;
+  viirsSnpp: number | null;
+  /** Antes de 2012: no hay VIIRS para comparar. */
+  extrapolated: boolean;
+  /** Antes de jul-2002: solo MODIS Terra. */
+  terraOnly: boolean;
+}
+
+export interface LongSeries {
+  version: string;
+  reference: string;
+  step: 'year' | 'month';
+  points: LongSeriesPoint[];
+  notes: string[];
+}
+
 export interface SeriesPoint {
   date: ISODate;
   modis: number | null;

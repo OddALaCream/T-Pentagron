@@ -6,8 +6,8 @@ import { cellToBoundary, cellToLatLng, cellToParent, getResolution, gridDisk, is
 import { aggregateRecords, computeTotals, DAILY_INDEX_SCALE, MONTHLY_INDEX_SCALE } from '@/lib/geo/aggregate';
 import { addDays } from '@/lib/time/dates';
 import type {
-  ActivityQuery, ActivitySnapshot, CellActivity, CellInfo, DatasetMetadata, Detection, ISODate, ModelInfo,
-  NewsItem, Prediction, Region, SeriesPoint, SeriesTarget, WeatherDaily,
+  ActivityQuery, ActivitySnapshot, CellActivity, CellInfo, DatasetMetadata, Detection, HarmonizationSeries, ISODate,
+  LongSeries, ModelInfo, NewsItem, Prediction, Region, SeriesPoint, SeriesTarget, WeatherDaily,
 } from '@/lib/types/domain';
 import type { DataRange, DataService, PredictionDetail } from '../service';
 import {
@@ -143,6 +143,41 @@ class ApiDataService implements DataService {
     }
   }
 
+  /** Modelo A FireSight. 404 = objetivo fuera de la zona piloto o fechas fuera de 2024–2025 → null. */
+  async getHarmonization(target: SeriesTarget, from: ISODate, to: ISODate): Promise<HarmonizationSeries | null> {
+    const query = target.kind === 'cell' ? { h3_id: target.h3, from, to } : { region: target.regionId, from, to };
+    const dto = await apiGet<Dict>(ENDPOINTS.harmonization, query).catch(nullOn404);
+    if (!dto || dto.status !== 'experimental') return null;
+    const sm = (dto.summary as Dict) ?? {};
+    return {
+      version: String(dto.harmonizer_version), reference: String(dto.reference), cellCount: num(dto.cell_count) ?? 0,
+      points: ((dto.points as Dict[]) ?? []).map((p) => ({
+        date: String(p.date), modis: num(p.modis_count), viirsSnpp: num(p.viirs_snpp_count), modisEq: num(p.modis_viirs_eq),
+        uncertainty: num(p.uncertainty), convertedCells: num(p.converted_cells) ?? 0,
+      })),
+      summary: {
+        comparableDays: num(sm.comparable_days) ?? 0, viirsSnppTotal: num(sm.viirs_snpp_total), modisTotal: num(sm.modis_total),
+        modisEqTotal: num(sm.modis_viirs_eq_total), biasPct: num(sm.bias_pct), rawRatio: num(sm.raw_ratio),
+        meanAbsError: num(sm.mean_abs_error), convertedCellDays: num(sm.converted_cell_days) ?? 0,
+      },
+      notes: ((dto.notes as string[]) ?? []).map(String),
+    };
+  }
+
+  async getLongSeries(target: SeriesTarget): Promise<LongSeries | null> {
+    const query = target.kind === 'cell' ? { h3_id: target.h3 } : { region: target.regionId };
+    const dto = await apiGet<Dict>(ENDPOINTS.longSeries, query).catch(nullOn404);
+    if (!dto || dto.status !== 'experimental') return null;
+    return {
+      version: String(dto.harmonizer_version), reference: String(dto.reference), step: dto.step === 'month' ? 'month' : 'year',
+      points: ((dto.points as Dict[]) ?? []).map((p) => ({
+        period: String(p.period), modis: num(p.modis_count), modisEq: num(p.modis_viirs_eq), uncertainty: num(p.uncertainty),
+        viirsSnpp: num(p.viirs_snpp_count), extrapolated: Boolean(p.extrapolated), terraOnly: Boolean(p.terra_only),
+      })),
+      notes: ((dto.notes as string[]) ?? []).map(String),
+    };
+  }
+
   async getModelInfo(): Promise<ModelInfo> {
     return adaptModel(await apiGet<Dict>(ENDPOINTS.model));
   }
@@ -197,6 +232,15 @@ class ApiDataService implements DataService {
       return [];
     }
   }
+}
+
+function num(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+function nullOn404(error: unknown): null {
+  if (error instanceof ApiError && error.status === 404) return null;
+  throw error;
 }
 
 export function createApiService(): DataService {

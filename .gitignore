@@ -18,3 +18,8 @@
 **/*.log
 **/.DS_Store
 **/Thumbs.db
+
+# Modelos FireSight: datos descargados, cubos y modelos entrenados (se regeneran con firesight/run_models.sh)
+data/firesight/
+data/firesight_holdout/
+.firms_key

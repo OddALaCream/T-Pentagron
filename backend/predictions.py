@@ -4,7 +4,8 @@ Lee el artefacto que genera `python -m firesight.export_serving AÑO` en data/mo
   predictions_<año>.parquet   probabilidad calibrada t+1 de cada celda H3 res 6 de la zona piloto, cada día
   explanations_<año>.parquet  explicación local exacta del Random Forest para las celdas relevantes
   model_card.json             versión, métricas, umbral, cobertura y años exportados
-2024 (validación) está en git; 2025 (prueba) queda solo en local. Se sirven los años cuyos archivos existen.
+2024 (validación) está en git; 2025 (prueba) se baja del release
+(scripts/descargar_datos.py). Se sirven los años cuyos archivos existen.
 No necesita sklearn ni los modelos entrenados. Si el artefacto falta, la API responde 'unavailable'.
 """
 from datetime import timedelta

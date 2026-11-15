@@ -1,4 +1,4 @@
-"""Pruebas del observatorio con varios años (2024 en git; 2025 y otros, solo en local).
+"""Pruebas del observatorio con varios años (2024 en git; 2025 en el release de datos, scripts/descargar_datos.py).
 
 Las pruebas de 2025 se saltan si faltan sus archivos:
   - predicción: data/models/predictions_2025.parquet y explanations_2025.parquet (firesight.export_serving 2025)

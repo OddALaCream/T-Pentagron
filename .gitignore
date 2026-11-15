@@ -26,12 +26,12 @@ data/firesight_2026/
 data/firesight_early/
 .firms_key
 
-# Años distintos de 2024 (datos FIRMS crudos, tablas procesadas y predicciones): de momento solo en local
+# Años distintos de 2024 (datos FIRMS crudos, tablas procesadas y predicciones): fuera de git, en el release de datos
 data/raw/
 data/processed/*_20??.parquet
 data/processed/manifest_20??.json
 data/models/*_20??.parquet
 !data/processed/*_2024.parquet
 !data/models/*_2024.parquet
-# Artefacto del Modelo A (firesight.export_harmonization): de momento solo en local
+# Artefacto del Modelo A (firesight.export_harmonization): fuera de git, en el release de datos
 data/models/harmonization_*

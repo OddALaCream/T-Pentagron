@@ -25,9 +25,9 @@ El backend **no necesita** el entorno de entrenamiento. Basta con `data/models/`
 | `predictions_2024.parquet` | Probabilidad calibrada t+1 de las 4.067 celdas de la zona, cada día de 2024 |
 | `explanations_2024.parquet` | Explicación local exacta del bosque: sesgo + Σ aportes de las 23 variables = probabilidad del bosque (error < 1e-14). Cubre las celdas con p ≥ 5 % o entre las 30 más altas del día (≈104 mil celdas-día) |
 | `model_card.json` | Versión, umbral F1, métricas (validación, prueba y validación externa), cobertura y años exportados (`years`) |
-| `predictions_2025.parquet`, `explanations_2025.parquet` | Lo mismo para 2025, el año de prueba. **Solo en local** (`.gitignore`); el backend los sirve si están |
+| `predictions_2025.parquet`, `explanations_2025.parquet` | Lo mismo para 2025, el año de prueba. Fuera de git (release `datos-2025-v1`, `python scripts/descargar_datos.py`); el backend los sirve si están |
 
-| `harmonization_2024.parquet`, `harmonization_2025.parquet`, `harmonization_monthly.parquet`, `harmonization_card.json` | Modelo A para el inspector del globo: MODIS crudo, S-NPP observado y MODIS armonizado por celda y día (2024–2025) y por celda y mes (2001–2025). **Solo en local.** Se generan con `python -m firesight.export_harmonization` |
+| `harmonization_2024.parquet`, `harmonization_2025.parquet`, `harmonization_monthly.parquet`, `harmonization_card.json` | Modelo A para el inspector del globo: MODIS crudo, S-NPP observado y MODIS armonizado por celda y día (2024–2025) y por celda y mes (2001–2025). Fuera de git (release `datos-2025-v1`, `python scripts/descargar_datos.py`). Se generan con `python -m firesight.export_harmonization` |
 
 ### Modelo A en el observatorio
 

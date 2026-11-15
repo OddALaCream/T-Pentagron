@@ -20,7 +20,7 @@ TABLES = [('grid','grid_daily'),('hotspots','hotspots'),('quality','source_quali
 
 @lru_cache(maxsize=1)
 def years():
-    """Años con las tres tablas procesadas (pipelines/build_dataset.py AÑO). Los CSV de 2024 están en el repo; los de otros años, solo en local."""
+    """Años con las tres tablas procesadas (pipelines/build_dataset.py AÑO). 2024 está en el repo; los demás años, en el release de datos (scripts/descargar_datos.py)."""
     found = {int(p.stem.rsplit('_',1)[1]) for p in DATA.glob('hotspots_*.parquet') if p.stem.rsplit('_',1)[1].isdigit()}
     return tuple(sorted(y for y in found if all((DATA/f'{t}_{y}.parquet').exists() for _, t in TABLES)))
 

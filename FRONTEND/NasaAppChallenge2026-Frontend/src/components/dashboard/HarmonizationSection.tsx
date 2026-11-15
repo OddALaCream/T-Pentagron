@@ -34,7 +34,7 @@ export function HarmonizationSection({ target, from, to }: { target: SeriesTarge
     return (
       <div data-holo-item>
         <SectionTitle>Modelo A · armonización MODIS → VIIRS</SectionTitle>
-        <Note>El Modelo A FireSight cubre solo la zona piloto (Chiquitanía). Selecciona una celda o la región dentro de ella.</Note>
+        <Note>Sin datos del Modelo A para esta selección. Cubre solo la zona piloto (Chiquitanía); si la selección está dentro de ella, faltan los datos del release: correr <code>python scripts/descargar_datos.py</code> y reiniciar el backend.</Note>
       </div>
     );
   }

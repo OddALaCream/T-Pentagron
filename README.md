@@ -48,6 +48,21 @@ npm run dev
 ```
 
 Abrir http://localhost:3000/?date=2024-09-06. Swagger: http://localhost:8000/docs.
+
+### Agregar 2025 (solo local)
+
+El repositorio trae 2024. Para sumar 2025, que es el año de prueba del modelo de predicción:
+
+1. Bajar los cuatro productos de 2025 (MODIS C6.1, VIIRS S-NPP, NOAA-20 y NOAA-21, los mismos que 2024) a
+   `data/raw/firms/2025/`, de una de estas dos formas:
+   - con una MAP_KEY de FIRMS (gratis): `FIRMS_MAP_KEY=... python pipelines/fetch_firms_year.py 2025` (Area API, unos 10 min);
+   - o pidiendo el archivo en https://firms.modaps.eosdis.nasa.gov/download/ y descomprimiendo las carpetas `DL_FIRE_*` ahí.
+2. Ambas vías dan los mismos datos (Standard Processing): MODIS y S-NPP coinciden fila a fila con los archivos por país.
+3. `./backend/.venv/Scripts/python.exe pipelines/build_dataset.py 2025`
+4. Copiar `predictions_2025.parquet` y `explanations_2025.parquet` en `data/models/` (`python -m firesight.export_serving 2025`).
+
+La API detecta sola los años procesados: `/meta` amplía el rango y el calendario del globo llega hasta 2025-12-31.
+Estos archivos están en `.gitignore`: no se suben al repositorio.
 El ejemplo de configuración usa datos reales de la API; `mock` es un modo independiente.
 Las teselas externas requieren conexión; pueden desactivarse en `.env.local`.
 
@@ -55,7 +70,7 @@ Las teselas externas requieren conexión; pueden desactivarse en `.env.local`.
 
 ```powershell
 # Desde la raíz:
-./backend/.venv/Scripts/python.exe -m unittest backend.test_integration backend.test_predictions -v
+./backend/.venv/Scripts/python.exe -m unittest backend.test_integration backend.test_predictions backend.test_years backend.test_harmonization -v
 
 Set-Location FRONTEND/NasaAppChallenge2026-Frontend
 npm run lint

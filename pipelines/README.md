@@ -1,4 +1,11 @@
-# Archivo FIRMS Bolivia 2024
+# Archivo FIRMS Bolivia (2024 en el repo; otros años en local)
+
+`python pipelines/build_dataset.py [AÑO ...]` (por defecto 2024). Las descargas de 2024 están en la raíz
+(`DL_FIRE_*`, versionadas); las de otros años van en `data/raw/firms/<año>/DL_FIRE_*` y no se suben.
+Cada año produce `hotspots_<año>`, `grid_daily_<año>` y `source_quality_<año>`, más su manifest
+(`manifest.json` para 2024, `manifest_<año>.json` para los demás). Se usan los `fire_archive_*.csv`; los
+`fire_nrt_*.csv` se ignoran porque no traen `type`. El índice exploratorio de cualquier año usa la base
+q95 de 2024 (MODIS 11, VIIRS 76), así que un mismo valor significa lo mismo en 2024 y en 2025.
 
 `build_dataset.py` conserva cada fila, columnas originales, fuente y número de línea CSV.
 Sin deduplicación entre satélites. Las consultas principales usan `type=0`; el Parquet

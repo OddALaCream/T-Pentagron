@@ -7,6 +7,8 @@
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 import type * as Leaflet from 'leaflet';
+import { boliviaBoundary } from '@/lib/geo/bolivia';
+import { env } from '@/config/env';
 import { CATEGORY, classify } from '@/lib/science/categories';
 import { cellPolygon, shortH3 } from '@/lib/geo/h3';
 import type { CellActivity, DataLayer, Granularity, Region } from '@/lib/types/domain';
@@ -62,6 +64,13 @@ export function RegionalMap({ region, records, layer, granularity, date, basemap
       const [minLng, minLat, maxLng, maxLat] = region.bbox;
       map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [24, 24] });
       mapRef.current = map;
+      if (env.dataMode === 'api') {
+        const pane = map.createPane('country-boundary');
+        pane.style.zIndex = '450'; pane.style.pointerEvents = 'none';
+        L.geoJSON(boliviaBoundary as unknown as GeoJSON.Feature, { pane: 'country-boundary', interactive: false,
+          style: { color: '#91d7e4', weight: 1.6, fill: false, opacity: 0.9 } }).addTo(map);
+        map.attributionControl.addAttribution('Frontera: Natural Earth 1:10m');
+      }
       setReady(true);
     });
     return () => {

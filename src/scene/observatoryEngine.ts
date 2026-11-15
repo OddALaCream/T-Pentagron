@@ -8,6 +8,7 @@
  * (sin bucles requestAnimationFrame adicionales), y se libera en `dispose()`.
  */
 import * as THREE from 'three';
+import { createCountryBorder } from './countryBoundary';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import type { GlobeMethods } from 'react-globe.gl';
@@ -68,6 +69,7 @@ export function subsolarPoint(isoDate: string, utcHours: number): LatLng {
 }
 
 export class ObservatoryEngine {
+  private countryBorder = createCountryBorder();
   readonly scan: ScanController;
   readonly capMaterials: CapMaterials;
   readonly mascot: GuardianStar;
@@ -112,6 +114,7 @@ export class ObservatoryEngine {
     private options: EngineOptions,
   ) {
     this.scene = globe.scene();
+    this.scene.add(this.countryBorder);
     this.camera = globe.camera() as THREE.PerspectiveCamera;
     this.renderer = globe.renderer() as THREE.WebGLRenderer;
     this.canvas = this.renderer.domElement;
@@ -190,7 +193,7 @@ export class ObservatoryEngine {
     const composer = this.globe.postProcessingComposer();
     if (on && !this.bloom) {
       const size = this.renderer.getSize(new THREE.Vector2());
-      this.bloom = new UnrealBloomPass(size, 0.42, 0.55, 0.8);
+      this.bloom = new UnrealBloomPass(size, 0.18, 0.35, 0.95);
       this.output = new OutputPass();
       composer.addPass(this.bloom);
       composer.addPass(this.output);
@@ -420,6 +423,9 @@ export class ObservatoryEngine {
 
   /* ---------------------------------------------------------------- */
   dispose() {
+    this.scene.remove(this.countryBorder);
+    this.countryBorder.geometry.dispose();
+    this.countryBorder.material.dispose();
     this.disposed = true;
     window.clearTimeout(this.compileTimer);
     this.scene.onBeforeRender = this.previousOnBeforeRender;

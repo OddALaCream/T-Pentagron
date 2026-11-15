@@ -19,7 +19,7 @@ export function TopBar() {
   const date = useStore((s) => s.date);
   const granularity = useStore((s) => s.granularity);
   const filters = useStore((s) => s.filters);
-  const { data: snap, isFetching } = useGlobeSnapshot();
+  const { data: snap, isFetching, error } = useGlobeSnapshot();
   const t = snap?.totals;
   const missingShare = t ? t.missingCells / Math.max(1, t.missingCells + t.partialCells + t.observedCells) : 0;
   const activeFilters =
@@ -57,13 +57,16 @@ export function TopBar() {
         />
         <div className={`telemetry ${isFetching ? 'is-updating' : ''}`} aria-live="polite">
           <span className="telemetry__date">{granularity === 'month' ? formatMonth(date) : formatDate(date)}</span>
-          {t && (
+          {error && <span role="alert">API no disponible: {error.message}</span>}
+          {env.dataMode === 'api' && layer === 'prediction' && <span role="status">Predicción no disponible: sin modelo entrenado</span>}
+          {t && layer !== 'prediction' && (
             <>
-              <span><b>{nf.format(t.viirs)}</b> VIIRS</span>
-              <span><b>{nf.format(t.modis)}</b> MODIS</span>
-              <span><b>{nf.format(t.activeCells)}</b> celdas activas</span>
+              {layer !== 'modis' && <span><b>{nf.format(t.viirs)}</b> det. VIIRS</span>}
+              {layer !== 'viirs' && <span><b>{nf.format(t.modis)}</b> det. MODIS</span>}
+              {layer === 'harmonized' && <span><b>{t.meanIndex.toFixed(2)}</b> índice exploratorio medio</span>}
+              {layer === 'harmonized' && <span><b>{nf.format(t.activeCells)}</b> celdas activas</span>}
               {t.anomalies > 0 && <span className="telemetry__anomaly"><b>{t.anomalies}</b> anomalías</span>}
-              <span className="muted">{Math.round(missingShare * 100)} % sin obs.</span>
+              <span className="muted">{env.dataMode === 'api' ? 'Bolivia 2024 · type=0 · cobertura desconocida' : `${Math.round(missingShare * 100)} % sin obs.`}</span>
             </>
           )}
           <span className="telemetry__layer muted">{active.description}</span>

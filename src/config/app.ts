@@ -1,9 +1,10 @@
 import type { DataLayer } from '@/lib/types/domain';
+import { env } from './env';
 
 /** Parámetros generales de la experiencia (no de marca). */
 export const appConfig = {
   /** Fecha con la que abre el observatorio (temporada de quemas en la zona piloto). */
-  defaultDate: '2026-09-08',
+  defaultDate: env.dataMode === 'api' ? '2024-09-06' : '2026-09-08',
   defaultLayer: 'harmonized' as DataLayer,
   /** Punto de vista inicial: la zona piloto ligeramente desplazada para mostrar el continente. */
   initialView: { lat: -14, lng: -64, altitude: 2.35 },

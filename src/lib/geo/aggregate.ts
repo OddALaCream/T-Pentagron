@@ -3,6 +3,8 @@
  * para que ambas fuentes produzcan exactamente la misma semántica en el globo.
  */
 import { cellToLatLng, cellToParent } from 'h3-js';
+import { env } from '@/config/env';
+import { insideBolivia } from './bolivia';
 import type { ActivityTotals, AvailabilityFlag, CellActivity } from '@/lib/types/domain';
 
 /** Escala del índice armonizado (VIIRS-equivalente) para un día y una celda res 6. */
@@ -30,6 +32,7 @@ export function coverageOf(flag: AvailabilityFlag): number {
 }
 
 interface Bucket {
+  anchor: CellActivity['center'];
   h3: string;
   regionId: string;
   modis: number;
@@ -61,7 +64,7 @@ export function aggregateRecords(
       b = {
         h3: parent, regionId: r.regionId, modis: 0, modisValid: 0, viirs: 0, viirsValid: 0, combined: 0,
         obsChildren: 0, coverage: 0, children: 0, anomaly: false, score: 0, modisFrp: 0, viirsFrp: 0,
-        probability: null,
+        probability: null, anchor: r.center,
       };
       buckets.set(parent, b);
     }
@@ -76,7 +79,7 @@ export function aggregateRecords(
       b.viirsValid++;
     }
     if (r.activity_index !== null) {
-      b.combined += combinedFromIndex(r.activity_index, indexScale);
+      b.combined += env.dataMode === 'api' ? r.activity_index * r.childCount : combinedFromIndex(r.activity_index, indexScale);
       b.obsChildren += r.childCount;
     }
     if (r.is_anomaly) b.anomaly = true;
@@ -94,13 +97,13 @@ export function aggregateRecords(
       date: records[0]?.date ?? '',
       resolution,
       regionId: b.regionId,
-      center: { lat, lng },
+      center: env.dataMode === 'api' && !insideBolivia(lat, lng) ? b.anchor : { lat, lng },
       childCount: b.children,
-      coverage,
+      coverage: env.dataMode === 'api' ? NaN : coverage,
       modis_detected: b.modisValid ? b.modis : null,
       viirs_detected: b.viirsValid ? b.viirs : null,
-      activity_index: b.obsChildren ? indexFromCombinedSum(b.combined, indexScale, b.obsChildren) : null,
-      availability_flag: availabilityFromCoverage(coverage),
+      activity_index: b.obsChildren ? (env.dataMode === 'api' ? b.combined / b.obsChildren : indexFromCombinedSum(b.combined, indexScale, b.obsChildren)) : null,
+      availability_flag: env.dataMode === 'api' ? (b.modisValid && b.viirsValid ? 'observed' : b.modisValid || b.viirsValid ? 'partial' : 'missing') : availabilityFromCoverage(coverage),
       is_anomaly: b.anomaly,
       anomaly_score: b.score,
       modis_frp_sum: b.modisFrp,

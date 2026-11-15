@@ -4,6 +4,9 @@
  * marcadores agregados a la resolución H3 más fina que no se solape en pantalla.
  */
 import { cellToLatLng, cellToParent } from 'h3-js';
+import { brand } from '@/config/brand';
+import { env } from '@/config/env';
+import { insideBolivia } from '@/lib/geo/bolivia';
 import { aggregateRecords, DAILY_INDEX_SCALE, MONTHLY_INDEX_SCALE } from '@/lib/geo/aggregate';
 import { cellPolygon, type H3Polygon } from '@/lib/geo/h3';
 import { classify, type Classification, type VisualKind } from '@/lib/science/categories';
@@ -48,7 +51,7 @@ export function displayResolution(altitude: number, previous: number, t: { res6:
 }
 
 /** Resolución de marcadores: la más fina cuyo ancho en pantalla supera `minPx`. */
-export function symbolResolution(altitude: number, viewportHeight: number, minPx = 26): number {
+export function symbolResolution(altitude: number, viewportHeight: number, minPx = 18): number {
   const pxPerKm = viewportHeight / (5941 * Math.max(0.01, altitude));
   for (let r = 6; r >= 1; r--) {
     if (EDGE_KM[r] * 2 * pxPerKm >= minPx) return r;
@@ -87,7 +90,7 @@ export function buildPolygons(records: CellActivity[], p: PolygonBuildParams, ca
   const selectedRegion = p.selection?.kind === 'region' ? p.selection.regionId : null;
   for (const record of records) {
     if (p.visibleRegions && !p.visibleRegions.has(record.regionId)) continue;
-    if (p.filters.regionScope === 'pilot' && record.regionId !== 'chiquitania') continue;
+    if (p.filters.regionScope === 'pilot' && record.regionId !== brand.pilot.regionId) continue;
     const cls = classify(record, p.layer, p.granularity);
     const isSelected = record.h3_id === selectedH3;
     if (!isSelected) {
@@ -126,15 +129,15 @@ export interface SymbolBuildParams {
 
 /** Marcadores agregados: categoría más severa de las celdas hijas + capa de anomalías. */
 export function buildSymbols(native: CellActivity[], p: SymbolBuildParams): SymbolDatum[] {
-  interface Group { kind: VisualKind; intensity: number; anomaly: boolean; children: number; unavailable: number }
+  interface Group { kind: VisualKind; intensity: number; anomaly: boolean; children: number; unavailable: number; anchor: { lat: number; lng: number } }
   const groups = new Map<string, Group>();
   for (const r of native) {
-    if (p.filters.regionScope === 'pilot' && r.regionId !== 'chiquitania') continue;
+    if (p.filters.regionScope === 'pilot' && r.regionId !== brand.pilot.regionId) continue;
     const cls = classify(r, p.layer, p.granularity);
     const key = p.symbolRes >= 6 ? r.h3_id : cellToParent(r.h3_id, p.symbolRes);
     let g = groups.get(key);
     if (!g) {
-      g = { kind: 'none', intensity: 0, anomaly: false, children: 0, unavailable: 0 };
+      g = { kind: 'none', intensity: 0, anomaly: false, children: 0, unavailable: 0, anchor: r.center };
       groups.set(key, g);
     }
     g.children++;
@@ -153,9 +156,10 @@ export function buildSymbols(native: CellActivity[], p: SymbolBuildParams): Symb
   const alt = SYMBOL_ALT[p.displayRes] ?? 0.012;
   const out: SymbolDatum[] = [];
   for (const [key, g] of groups) {
-    const [lat, lng] = cellToLatLng(key);
+    const [centerLat, centerLng] = cellToLatLng(key);
+    const { lat, lng } = env.dataMode === 'api' && !insideBolivia(centerLat, centerLng) ? g.anchor : { lat: centerLat, lng: centerLng };
     if (g.kind !== 'none') out.push({ lat, lng, altitude: alt, kind: g.kind, intensity: g.intensity });
-    else if (g.unavailable / g.children > 0.6 && p.filters.kinds.unavailable && !p.filters.onlyAnomalies)
+    else if (p.layer !== 'prediction' && g.unavailable / g.children > 0.6 && p.filters.kinds.unavailable && !p.filters.onlyAnomalies)
       out.push({ lat, lng, altitude: alt, kind: 'unavailable', intensity: 0.3 });
     if (g.anomaly && p.filters.kinds.anomaly && p.layer !== 'prediction')
       out.push({ lat, lng, altitude: alt + 0.0005, kind: 'anomaly', intensity: 0.8 });

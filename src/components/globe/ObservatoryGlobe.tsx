@@ -12,6 +12,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Material } from 'three';
 import { latLngToCell } from 'h3-js';
 import { appConfig } from '@/config/app';
+import { env } from '@/config/env';
+import { insideBolivia } from '@/lib/geo/bolivia';
 import { useGlobeSnapshot, useRegions } from '@/hooks/data';
 import { useViewport } from '@/hooks/useViewport';
 import { CATEGORY } from '@/lib/science/categories';
@@ -51,6 +53,9 @@ const hexToRgba = (hex: string, a: number) => {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 };
+
+const detailTiles = (x: number, y: number, z: number) =>
+  `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
 
 function formatValue(f: PolygonFeature, layer: string): string {
   const r = f.record;
@@ -274,14 +279,28 @@ export default function ObservatoryGlobe() {
 
   /* ---------------- Inicialización del motor ---------------- */
   const [globeReady, setGlobeReady] = useState(false);
+  const globeReadyEvent = useRef(false);
   const onGlobeReady = useCallback(() => {
+    globeReadyEvent.current = true;
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (!globeReadyEvent.current || !globeRef.current) return;
+      setGlobeReady(true);
+      window.clearInterval(timer);
+    }, 50);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!globeReady) return;
     const globe = globeRef.current;
     if (!globe) return;
     globe.pointOfView(appConfig.initialView, 0);
     globe.controls().autoRotateSpeed = 0.32;
     if (useStore.getState().phase === 'intro') globe.pauseAnimation();
-    setGlobeReady(true);
-  }, []);
+  }, [globeReady]);
 
   const createEngine = useCallback((globe: GlobeMethods): ObservatoryEngine => {
     const engine = new ObservatoryEngine(globe, {
@@ -359,7 +378,7 @@ export default function ObservatoryGlobe() {
   }, [ready, regions]);
 
   useEffect(() => {
-    const size = Math.round((viewport.width < 700 ? 13 : 16) * (cam.displayRes === 6 ? 1.1 : 1));
+    const size = cam.displayRes === 6 ? 8 : cam.displayRes === 5 ? 9 : 10;
     engineRef.current?.setSymbols(symbols, size);
   }, [ready, symbols, viewport.width, cam.displayRes]);
 
@@ -407,7 +426,7 @@ export default function ObservatoryGlobe() {
   useEffect(() => {
     if (!ready || phase !== 'observatory' || scanNonce === 0) return;
     engineRef.current?.triggerScan({ hide: firstScan.current });
-    if (firstScan.current) say(`Escaneo inicial · ${regionsRef.current.length || 13} regiones de demostración`, 'scan', 4200);
+    if (firstScan.current) say(env.dataMode === 'api' ? 'NASA FIRMS · Bolivia 2024 · detecciones históricas' : `Escaneo inicial · ${regionsRef.current.length || 13} regiones de demostración`, 'scan', 4200);
     firstScan.current = false;
   }, [ready, phase, scanNonce, say]);
 
@@ -467,13 +486,13 @@ export default function ObservatoryGlobe() {
         activateCell(rec.h3_id, rec.regionId, res, rec.center, rec);
         return;
       }
-      const near = regions.find((r) => lat >= r.bbox[1] - 1 && lat <= r.bbox[3] + 1 && lng >= r.bbox[0] - 1 && lng <= r.bbox[2] + 1);
+      const near = regions.find((r) => env.dataMode === 'api' && r.id === 'bolivia' ? insideBolivia(lat, lng) : lat >= r.bbox[1] && lat <= r.bbox[3] && lng >= r.bbox[0] && lng <= r.bbox[2]);
       if (near) {
         handleRegionActivate(near, false);
         return;
       }
       useStore.getState().clearSelection();
-      say(`${formatLatLng({ lat, lng }, 2)} · sin datos de demostración aquí`, 'info', 2600);
+      say(`${formatLatLng({ lat, lng }, 2)} · sin detecciones registradas aquí`, 'info', 2600);
     },
     [cam.displayRes, recordsByRes, regions, activateCell, handleRegionActivate, say],
   );
@@ -533,6 +552,8 @@ export default function ObservatoryGlobe() {
         animateIn={false}
         backgroundColor="#010309"
         globeMaterial={earth.material}
+        globeCurvatureResolution={cam.displayRes === 6 ? 0.5 : 2}
+        globeTileEngineUrl={env.enableGlobeTiles && cam.altitude < 0.7 ? detailTiles : null}
         showAtmosphere
         atmosphereColor="#6fb0ff"
         atmosphereAltitude={0.17}
@@ -562,6 +583,7 @@ export default function ObservatoryGlobe() {
         }}
         showPointerCursor
       />
+      {env.enableGlobeTiles && cam.altitude < 0.7 && <span className="globe-attribution">Mapa de referencia: Esri World Imagery · Esri, Maxar, Earthstar Geographics y comunidad GIS. No corresponde a la fecha seleccionada.</span>}
     </div>
   );
 }

@@ -10,6 +10,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { appConfig } from '@/config/app';
+import { env } from '@/config/env';
 import { addDays, addMonths, clampDate, type ISODate } from '@/lib/time/dates';
 import type { ConfidenceFilter, DataLayer, Granularity, LatLng } from '@/lib/types/domain';
 import type { VisualKind } from '@/lib/science/categories';
@@ -139,7 +140,7 @@ export const useStore = create<State>()(
       view: 'global',
       regionalId: null,
       transition: null,
-      dataRange: { start: '2023-01-01', end: '2026-11-13' },
+      dataRange: env.dataMode === 'api' ? { start: '2024-01-01', end: '2024-12-31' } : { start: '2023-01-01', end: '2026-11-13' },
       date: appConfig.defaultDate,
       granularity: 'day',
       layer: appConfig.defaultLayer,
@@ -150,7 +151,7 @@ export const useStore = create<State>()(
       drawer: null,
       settings: defaultSettings,
       filters: { kinds: allKinds, confidence: 'all', onlyAnomalies: false, highlightDiscrepancy: false, regionScope: 'all' },
-      compare: { yearA: 2026, yearB: 2025, monthFrom: 7, monthTo: 10 },
+      compare: { yearA: env.dataMode === 'api' ? 2024 : 2026, yearB: env.dataMode === 'api' ? 2024 : 2025, monthFrom: 7, monthTo: 10 },
       fly: null,
       scanNonce: 0,
       systemReducedMotion: false,

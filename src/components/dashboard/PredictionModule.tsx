@@ -8,6 +8,7 @@ import { useStore } from '@/state/store';
 import { ContributionBars, Gauge, MiniHistogram } from '@/components/charts/charts';
 import { Note, SectionTitle } from '@/components/ui/primitives';
 import type { TargetInfo } from './useTarget';
+import { env } from '@/config/env';
 
 const fmtMetric = (v: number | null) => (v === null ? '—' : v.toFixed(2));
 
@@ -21,6 +22,8 @@ export function PredictionModule({ info }: { info: TargetInfo }) {
   const p = detail?.probability ?? null;
   const band = p === null ? null : probabilityBand(p);
   const isRegion = info.kind === 'region' || (detail?.distribution?.length ?? 0) > 0;
+
+  if (env.dataMode === 'api') return <div className="module"><Note>Predicción no disponible: todavía no existe un modelo entrenado.</Note></div>;
 
   return (
     <div className="module">

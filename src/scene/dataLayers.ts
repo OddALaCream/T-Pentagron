@@ -7,6 +7,7 @@
  *  - Retícula H3 (aristas reales de las celdas) como un único LineSegments.
  */
 import * as THREE from 'three';
+import { countryUniforms, countryClipGLSL } from './countryBoundary';
 import { cellToBoundary } from 'h3-js';
 import { scanUniformsGLSL } from './shaders/noise';
 import type { VisualKind } from '@/lib/science/categories';
@@ -225,18 +226,18 @@ void main() {
   float t = uTime;
   float d;
   float pulse = 1.0;
-  float glowAmt = 0.55;
+  float glowAmt = 0.12;
   int shape = int(vShape + 0.5);
   if (shape == 0) {            // baja · círculo · brillo estable
     d = length(p) - 0.42;
-    glowAmt = 0.35;
+    glowAmt = 0.08;
   } else if (shape == 1) {     // media · triángulo · respiración lenta
     d = sdTriangle(p * 1.05 + vec2(0.0, 0.06), 0.55);
     pulse = 0.82 + 0.18 * sin(t * 2.4 + vPhase * 6.283);
   } else if (shape == 2) {     // alta · diamante · pulso rápido
     d = (abs(p.x) + abs(p.y)) * 0.7071 - 0.42;
     pulse = 0.72 + 0.28 * pow(0.5 + 0.5 * sin(t * 6.2 + vPhase * 6.283), 2.0);
-    glowAmt = 0.95;
+    glowAmt = 0.18;
   } else if (shape == 3) {     // pronóstico · hexágono · rotación pausada
     d = sdHexagon(rot(t * 0.35 + vPhase) * p, 0.44);
     glowAmt = 0.45;
@@ -262,7 +263,7 @@ void main() {
   float rim = 1.0 - smoothstep(0.0, 0.09, abs(d + 0.05));
   float glow = exp(-max(d, 0.0) * 5.5) * glowAmt * (0.6 + vIntensity * 0.6);
   vec3 base = vColor * (0.72 + 0.28 * vIntensity);
-  vec3 col = base * fill * pulse + vec3(1.0) * rim * fill * 0.35 + vColor * glow * pulse * 0.8;
+  vec3 col = base * fill * pulse * 0.8 + vColor * rim * fill * 0.08 + vColor * glow * pulse * 0.25;
   float alpha = max(fill * (shape == 5 ? 0.85 : 0.95), glow * 0.65 * pulse);
   if (vSelected > 0.5) {
     float sel = 1.0 - smoothstep(0.0, 0.06, abs(length(p) - 0.9));
@@ -270,7 +271,7 @@ void main() {
     alpha = max(alpha, sel);
   }
   float front = scanFront(vDir, 0.07);
-  col += vec3(0.75, 0.95, 1.0) * front * (fill + glow);
+  col += vec3(0.75, 0.95, 1.0) * front * (fill + glow) * 0.15;
   alpha = min(1.0, alpha + front * 0.4 * fill);
   alpha *= vFacing * scanRevealed(vDir);
   if (alpha < 0.01) discard;
@@ -346,6 +347,7 @@ void main() {
 
 const capFragment = /* glsl */ `
 ${scanUniformsGLSL}
+${countryClipGLSL}
 uniform vec3 uColor;
 uniform float uOpacity;
 uniform float uPulse;
@@ -353,6 +355,7 @@ uniform float uHighlight;
 uniform float uHatch;
 varying vec3 vPosW;
 void main() {
+  clipCountry(vPosW);
   vec3 dir = normalize(vPosW);
   float pulse = uPulse > 0.0 ? 0.78 + 0.22 * sin(uTime * uPulse) : 1.0;
   vec3 col = uColor * pulse;
@@ -381,10 +384,11 @@ export class CapMaterials {
     if (!m) {
       const meta = CATEGORY[kind];
       const baseOpacity =
-        kind === 'none' ? 0.07 : kind === 'unavailable' ? 0.32 : kind === 'forecast' ? 0.55 : kind === 'low' ? 0.6 : 0.78;
+        kind === 'none' ? 0.03 : kind === 'unavailable' ? 0.08 : kind === 'forecast' ? 0.2 : kind === 'low' ? 0.17 : 0.3;
       m = new THREE.ShaderMaterial({
         uniforms: {
           ...this.scan,
+          ...countryUniforms(),
           uColor: { value: new THREE.Color(meta.color) },
           uOpacity: { value: faint ? baseOpacity * 0.45 : state === 'selected' ? Math.min(1, baseOpacity + 0.2) : baseOpacity },
           uPulse: { value: kind === 'high' ? 5.5 : kind === 'medium' ? 2.2 : 0 },
@@ -422,7 +426,7 @@ export function createGridLayer(scan: ScanUniforms): GridLayer {
   const geometry = new THREE.BufferGeometry();
   const opacity = { value: 0 };
   const material = new THREE.ShaderMaterial({
-    uniforms: { ...scan, uOpacity: opacity, uColor: { value: new THREE.Color('#9cc3ff') } },
+    uniforms: { ...scan, ...countryUniforms(), uOpacity: opacity, uColor: { value: new THREE.Color('#9cc3ff') } },
     vertexShader: /* glsl */ `
       varying vec3 vPosW;
       varying float vFacing;
@@ -434,11 +438,13 @@ export function createGridLayer(scan: ScanUniforms): GridLayer {
       }`,
     fragmentShader: /* glsl */ `
       ${scanUniformsGLSL}
+      ${countryClipGLSL}
       uniform float uOpacity;
       uniform vec3 uColor;
       varying vec3 vPosW;
       varying float vFacing;
       void main() {
+        clipCountry(vPosW);
         float front = scanFront(normalize(vPosW), 0.08);
         float a = (uOpacity + front * 0.7) * vFacing;
         if (a < 0.005) discard;

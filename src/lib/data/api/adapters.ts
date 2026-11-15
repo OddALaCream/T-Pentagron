@@ -47,7 +47,7 @@ export function toCellActivity(h: HarmonizedDaily, regionId: string, probability
     regionId,
     center: { lat, lng },
     childCount: 1,
-    coverage: coverageOf(h.availability_flag),
+    coverage: NaN, // FIRMS detection files do not establish observation coverage.
     probability: probability ?? null,
   };
 }

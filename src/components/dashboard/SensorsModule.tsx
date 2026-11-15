@@ -7,6 +7,7 @@ import { useStore } from '@/state/store';
 import { ScatterSensors, SensorChart } from '@/components/charts/charts';
 import { Note, SectionTitle, Segmented, Stat } from '@/components/ui/primitives';
 import type { TargetInfo } from './useTarget';
+import { env } from '@/config/env';
 
 export function SensorsModule({ info }: { info: TargetInfo }) {
   const date = useStore((s) => s.date);
@@ -16,7 +17,7 @@ export function SensorsModule({ info }: { info: TargetInfo }) {
   const [windowDays, setWindowDays] = useState<'30' | '60' | '120'>('60');
   const [mode, setMode] = useState<'raw' | 'calibrated'>('raw');
   const { data: meta } = useMetadata();
-  const k = Number.isFinite(meta?.harmonization.modisCalibrationFactor) ? meta!.harmonization.modisCalibrationFactor : 3.1;
+  const k = env.dataMode === 'api' ? 1 : Number.isFinite(meta?.harmonization.modisCalibrationFactor) ? meta!.harmonization.modisCalibrationFactor : 3.1;
   const from = addDays(date, -(Number(windowDays) - 1));
   const { data: points, isFetching } = useSeries(info.target, from < range.start ? range.start : from, date);
 
@@ -46,8 +47,8 @@ export function SensorsModule({ info }: { info: TargetInfo }) {
       <div className="module-toolbar" data-holo-item>
         <Segmented label="Ventana temporal" size="sm" value={windowDays} onChange={setWindowDays}
           options={[{ value: '30', label: '30 d' }, { value: '60', label: '60 d' }, { value: '120', label: '120 d' }]} />
-        <Segmented label="Valores MODIS" size="sm" value={mode} onChange={setMode}
-          options={[{ value: 'raw', label: 'Originales' }, { value: 'calibrated', label: `Calibrados ×${k}` }]} />
+        {env.dataMode === 'mock' && <Segmented label="Valores MODIS" size="sm" value={mode} onChange={setMode}
+          options={[{ value: 'raw', label: 'Originales' }, { value: 'calibrated', label: `Calibrados ×${k}` }]} />}
       </div>
 
       <div className={`chart-card ${isFetching ? 'is-loading' : ''}`} data-holo-item>
@@ -71,23 +72,23 @@ export function SensorsModule({ info }: { info: TargetInfo }) {
           <SectionTitle>Discrepancias</SectionTitle>
           <ul className="bullet-stats">
             <li><b>{s.both}</b> días con detección en ambos sensores</li>
-            <li><b>{s.onlyV}</b> días solo VIIRS <span className="muted">(focos pequeños bajo el umbral de MODIS)</span></li>
-            <li><b>{s.onlyM}</b> días solo MODIS <span className="muted">(distinta hora de paso)</span></li>
-            <li><b>{s.missing}</b> días sin observación <span className="muted">(excluidos)</span></li>
+            <li><b>{s.onlyV}</b> días solo VIIRS</li>
+            <li><b>{s.onlyM}</b> días solo MODIS</li>
+            <li><b>{s.missing}</b> días sin detecciones registradas; cobertura desconocida</li>
           </ul>
         </div>
         <div>
-          <SectionTitle>VIIRS frente a MODIS·k</SectionTitle>
+          <SectionTitle>{env.dataMode === 'api' ? 'VIIRS frente a MODIS (originales)' : 'VIIRS frente a MODIS·k'}</SectionTitle>
           <ScatterSensors points={points ?? []} factor={k} />
         </div>
       </div>
 
       <div data-holo-item>
-        <Note>
+        {env.dataMode === 'api' ? <Note>Recuentos originales de type=0. Una detección no equivale a un incendio único. El índice exploratorio usa normalización robusta por sensor, sin calibración física. {meta?.harmonization.notes} Cobertura satelital desconocida.</Note> : <Note>
           VIIRS observa píxeles de ~375 m y MODIS de ~1 km: VIIRS suele registrar más focos y detecta fuegos pequeños que
           MODIS omite. Los recuentos no equivalen a número de incendios ni a superficie quemada. La capa armonizada
           aplica un factor de calibración k (ilustrativo en esta demo) y se muestra separada de los valores originales.
-        </Note>
+        </Note>}
         <div className="action-row">
           <button type="button" className="btn" onClick={() => setLayer('modis')}>Ver capa MODIS</button>
           <button type="button" className="btn" onClick={() => setLayer('viirs')}>Ver capa VIIRS</button>

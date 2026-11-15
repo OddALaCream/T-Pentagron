@@ -4,7 +4,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import gsap from 'gsap';
-import { ExternalLink, Navigation, Orbit, RotateCcw, Search, X } from 'lucide-react';
+import { ExternalLink, Navigation, Orbit, RotateCcw, Search, X, CalendarDays } from 'lucide-react';
 import { brand, nameProposals } from '@/config/brand';
 import { env } from '@/config/env';
 import { useGlobeSnapshot, useMetadata, useRegions } from '@/hooks/data';
@@ -91,6 +91,7 @@ function RegionsDrawer() {
   const flyTo = useStore((s) => s.flyTo);
   const setTransition = useStore((s) => s.setTransition);
   const selection = useStore((s) => s.selection);
+  const setDrawer = useStore((s) => s.setDrawer);
   const [q, setQ] = useState('');
   const glances = useMemo(() => (snap ? regionGlances(snap.records, layer, granularity) : {}), [snap, layer, granularity]);
   const list = (regions ?? []).filter((r) => `${r.name} ${r.country} ${r.admin} ${r.biome}`.toLowerCase().includes(q.toLowerCase()));
@@ -105,7 +106,7 @@ function RegionsDrawer() {
         </label>
       </Item>
       <Item>
-        <p className="muted small">Toda la Tierra es explorable; estas regiones tienen datos de demostración. La zona piloto científica es la Chiquitanía.</p>
+        <p className="muted small">{env.dataMode === 'api' ? 'Bolivia · archivo 2024. Detecciones filtradas por el polígono Natural Earth. Selecciona la región para consultar su historia; el calendario conserva la fecha actual. No hay datos departamentales asignados.' : 'Regiones de demostración.'}</p>
       </Item>
       <ul className="region-list">
         {sorted.map((r) => {
@@ -119,6 +120,7 @@ function RegionsDrawer() {
                 className="region-list__main"
                 onClick={() => {
                   select({ kind: 'region', regionId: r.id });
+                  setDrawer(null);
                   flyTo({ ...r.center, altitude: 0.95 });
                 }}
               >
@@ -129,11 +131,12 @@ function RegionsDrawer() {
                   </span>
                   <span className="region-list__meta">{r.admin}, {r.country} · {r.biome}</span>
                   <span className="region-list__meta">
-                    {g ? `${g.active} celdas activas · ${g.anomalies} anomalías · ${Math.round(g.unavailableShare * 100)} % sin obs.` : '—'} · temporada {r.seasonLabel}
+                    {g ? `${g.active} celdas activas` : 'Sin actividad registrada'} · {r.seasonLabel}
                   </span>
                 </span>
               </button>
               <div className="region-list__actions">
+                <button type="button" className="icon-btn icon-btn--small" title="Calendario histórico" aria-label={`Calendario de ${r.name}`} onClick={() => { select({ kind: 'region', regionId: r.id }, { tab: 'calendar' }); setDrawer(null); }}><CalendarDays size={14} /></button>
                 <button type="button" className="icon-btn icon-btn--small" title="Volar a la región" aria-label={`Volar a ${r.name}`} onClick={() => flyTo({ ...r.center, altitude: 0.95 })}>
                   <Navigation size={14} />
                 </button>
@@ -289,7 +292,7 @@ function AboutDrawer() {
   const { data: meta } = useMetadata();
   return (
     <div className="prose">
-      <Item><DemoBadge /></Item>
+      <Item>{env.dataMode === 'mock' ? <DemoBadge /> : <span className="api-badge">NASA FIRMS ? Bolivia 2024 ? type=0</span>}</Item>
       <Item>
         <p>
           <strong>{brand.fullName}</strong> explora la actividad térmica histórica observada por los sensores MODIS y VIIRS,
@@ -301,7 +304,7 @@ function AboutDrawer() {
         <h3>Qué se muestra</h3>
         <ul>
           <li><b>MODIS</b> y <b>VIIRS</b>: recuentos originales por celda y día (o mes), separados.</li>
-          <li><b>Armonizado</b>: índice VIIRS-equivalente 0–1 que combina ambos sensores con un factor de calibración k{meta && Number.isFinite(meta.harmonization.modisCalibrationFactor) ? ` = ${meta.harmonization.modisCalibrationFactor}` : ''}.</li>
+          <li><b>Armonizado</b>: {env.dataMode === 'api' ? meta?.harmonization.notes : '?ndice ilustrativo de la demo con factor k.'}</li>
           <li><b>Anomalías</b>: actividad muy superior a la climatología de la celda para esa época del año.</li>
           <li><b>Predicción</b>: probabilidad experimental de actividad detectada al día siguiente.</li>
         </ul>

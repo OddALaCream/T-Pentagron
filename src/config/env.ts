@@ -12,4 +12,5 @@ export const env = {
   apiTimeoutMs: Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS || 15000),
   googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
   enableGibs: process.env.NEXT_PUBLIC_ENABLE_GIBS !== 'false',
+  enableGlobeTiles: process.env.NEXT_PUBLIC_ENABLE_GLOBE_TILES !== 'false',
 } as const;

@@ -5,6 +5,7 @@
  * Importante: "actividad térmica detectada" ≠ "incendio confirmado", y
  * "sin detección registrada" ≠ "no hubo fuego". Los textos lo reflejan.
  */
+import { env } from '@/config/env';
 import type { CellActivity, DataLayer, Granularity } from '@/lib/types/domain';
 import { DAILY_INDEX_SCALE, MONTHLY_INDEX_SCALE } from '@/lib/geo/aggregate';
 

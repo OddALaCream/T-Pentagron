@@ -26,13 +26,10 @@ class ApiDataService implements DataService {
   private cellLists = new Map<string, Promise<string[]>>();
 
   async getDataRange(): Promise<DataRange> {
-    try {
       const meta = await apiGet<Dict>(ENDPOINTS.meta);
       const range = (meta.date_range as Dict) ?? {};
-      return { start: String(range.start ?? '2018-01-01'), end: String(range.end ?? new Date().toISOString().slice(0, 10)) };
-    } catch {
-      return { start: '2018-01-01', end: new Date().toISOString().slice(0, 10) };
-    }
+      if (!range.start || !range.end) throw new Error('El backend no devolvió el rango del archivo');
+      return { start: String(range.start), end: String(range.end) };
   }
 
   getRegions(): Promise<Region[]> {
@@ -48,8 +45,7 @@ class ApiDataService implements DataService {
         .then((ids) => {
           ids.forEach((id) => this.cellRegion.set(id, regionId));
           return ids;
-        })
-        .catch(() => []);
+        });
       this.cellLists.set(regionId, p);
     }
     return p;
@@ -76,6 +72,7 @@ class ApiDataService implements DataService {
     for (const dto of raw as Dict[]) {
       const h = adaptHarmonized(dto);
       const record = toCellActivity(h, await this.regionOf(h.h3_id, dto.region_id), probs.get(h.h3_id));
+      if (record && dto.display_center) record.center = dto.display_center as CellActivity['center'];
       if (record) native.push(record);
     }
     const { totals, byRegion } = computeTotals(native);
@@ -98,7 +95,8 @@ class ApiDataService implements DataService {
   }
 
   async getPredictions(date: ISODate, regionIds?: string[]): Promise<Prediction[]> {
-    const list = await apiGet<Dict[]>(ENDPOINTS.predictions, { date, region: regionIds });
+    const response = await apiGet<Dict | Dict[]>(ENDPOINTS.predictions, { date, region: regionIds });
+    const list = Array.isArray(response) ? response : (response.predictions as Dict[] ?? []);
     return list.map(adaptPrediction);
   }
 
@@ -137,6 +135,8 @@ class ApiDataService implements DataService {
 
   async getMetadata(): Promise<DatasetMetadata> {
     const range = await this.getDataRange();
+    const meta = await apiGet<Dict>(ENDPOINTS.meta);
+    const harmonization = meta.harmonization as Dict;
     return {
       source: 'api',
       generator: 'FastAPI',
@@ -145,7 +145,7 @@ class ApiDataService implements DataService {
         { sensor: 'MODIS', product: 'MODIS C6.1', resolutionMeters: 1000, satellites: ['Terra', 'Aqua'] },
         { sensor: 'VIIRS', product: 'VIIRS 375 m', resolutionMeters: 375, satellites: ['Suomi NPP', 'NOAA-20', 'NOAA-21'] },
       ],
-      harmonization: { method: 'Definido por el backend', modisCalibrationFactor: NaN, notes: 'Consultar documentación del backend.' },
+      harmonization: { method: String(harmonization.method), modisCalibrationFactor: NaN, notes: `${harmonization.formula}. ${harmonization.notes}` },
       h3: { resolution: 6, meanAreaKm2: 36.13, aggregateResolutions: [4, 5] },
       disclaimer: 'Los focos satelitales tienen precisión limitada y no deben emplearse como único recurso para proteger vidas o bienes.',
     };

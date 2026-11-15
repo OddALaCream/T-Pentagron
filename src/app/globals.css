@@ -18,8 +18,8 @@
   --radius: 10px;
   --shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(150, 185, 235, 0.06);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --top-h: 64px;
-  --dock-h: 104px;
+  --top-h: 112px;
+  --dock-h: 146px;
   color-scheme: dark;
 }
 
@@ -687,4 +687,53 @@ select {
 /* ---------- Movimiento reducido ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+/* Observatorio: controles con espacio reservado y fechas legibles. */
+.topbar { grid-template-columns: 1fr auto; grid-template-rows: 44px auto; gap: 8px; height: auto; }
+.topbar__brand { grid-column: 1; grid-row: 1; }
+.topbar__actions { grid-column: 2; grid-row: 1; }
+.topbar__center { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 16px; }
+.telemetry { border-radius: 10px; padding: 6px 12px; max-width: 650px; font-size: 12px; }
+.telemetry > .muted { font-size: 10px; }
+.timeline { width: min(1200px, calc(100vw - 32px)); }
+.timeline__track { height: 68px; }
+.timeline__hist { height: 43px; top: 4px; }
+.timeline__months { height: 18px; bottom: 0; border-top: 1px solid var(--line); }
+.timeline__months span { color: #b7c7df; font-size: 11px; line-height: 18px; }
+.timeline__caption { font-size: 11px; line-height: 1.5; margin-top: 6px; }
+.timeline__date-text { font-size: 14px; color: #e0f5ff; }
+.holo { top: calc(var(--top-h) + 24px); bottom: calc(var(--dock-h) + 32px); }
+.holo__body { overscroll-behavior: contain; }
+.holo__subtitle { line-height: 1.4; }
+.hud.has-inspector .legend { max-width: 210px; }
+.globe-attribution { position: fixed; left: 20px; top: calc(var(--top-h) + 10px); max-width: 300px; padding: 5px 8px; color: #b7c7df; background: rgba(3,8,18,.85); border-radius: 6px; font-size: 10px; pointer-events: none; }
+@media (max-width: 1100px) {
+  :root { --top-h: 144px; }
+  .topbar__center { flex-direction: column; gap: 5px; }
+  .topbar__sub { display: none; }
+  .telemetry { max-width: calc(100vw - 32px); }
+}
+@media (max-width: 700px) {
+  :root { --top-h: 148px; --dock-h: 188px; }
+  .topbar { gap: 4px; grid-template-rows: 38px auto; }
+  .topbar__actions { gap: 0; }
+  .topbar__actions .icon-btn { width: 30px; height: 30px; }
+  .telemetry { font-size: 11px; gap: 3px 8px; }
+  .timeline__controls { gap: 5px; }
+  .timeline__date { margin-left: auto; }
+  .timeline__date-text { font-size: 12px; padding: 6px; }
+  .timeline__year { display: none; }
+  .timeline__caption { font-size: 10px; }
+  .timeline__track { height: 62px; }
+  .holo, .holo.is-expanded { top: calc(var(--top-h) + 10px); bottom: calc(var(--dock-h) + 14px); height: auto; }
+  .camera-controls { bottom: calc(var(--dock-h) + 24px); }
+  .hud.has-inspector .camera-controls { display: none; }
+}
+
+.holo__float, .holo__surface, .holo__body, .holo__toolbar { min-width: 0; }
+.holo__body { overflow-x: auto; }
+.calendar-heatmap { max-width: 100%; height: auto; }
+@media (max-width: 700px) {
+  .holo, .holo.is-expanded { top: calc(var(--top-h) + 18px); }
 }

@@ -18,6 +18,7 @@ import { TimelineDock } from '@/components/observatory/TimelineDock';
 import { RegionalMap } from './RegionalMap';
 import { BASEMAPS, type BasemapId } from './basemaps';
 import type { CellActivity } from '@/lib/types/domain';
+import { env } from '@/config/env';
 
 export function RegionalView() {
   const regionalId = useStore((s) => s.regionalId);
@@ -120,7 +121,7 @@ export function RegionalView() {
             onTileError={() => setTileError(true)}
           />
           <div className="regional__map-foot">
-            {basemapDef?.dateDependent && <span>Imagen satelital real del {formatDate(date)} · celdas: datos de demostración</span>}
+            {basemapDef?.dateDependent && <span>Imagen satelital del {formatDate(date)} · celdas: {env.dataMode === 'api' ? 'NASA FIRMS 2024' : 'datos de demostración'}</span>}
             {tileError && <span className="warn">Algunas teselas no cargaron (sin conexión o sin imagen para esa fecha). La retícula H3 sigue disponible.</span>}
           </div>
         </section>
@@ -135,7 +136,7 @@ export function RegionalView() {
               <Stat label="Anomalías" value={totals?.anomalies ?? '—'} tone={CATEGORY.anomaly.color} />
             </div>
             <p className="muted small">
-              Cobertura: {totals ? Math.round(((totals.observedCells + totals.partialCells * 0.5) / Math.max(1, totals.observedCells + totals.partialCells + totals.missingCells)) * 100) : '—'} % de celdas con observación válida.
+              {env.dataMode === 'api' ? 'Cobertura satelital desconocida. Se muestran celdas con detecciones en el archivo.' : `Cobertura: ${totals ? Math.round(((totals.observedCells + totals.partialCells * 0.5) / Math.max(1, totals.observedCells + totals.partialCells + totals.missingCells)) * 100) : '—'} % de celdas con observación válida.`}
             </p>
           </section>
 
@@ -165,7 +166,7 @@ export function RegionalView() {
           </section>
 
           <section className="glass-crystal regional__card" data-reveal-regional>
-            <SectionTitle aside={<span className="badge">tipo NASA POWER · demo</span>}>Condiciones meteorológicas</SectionTitle>
+            <SectionTitle aside={<span className="badge">{env.dataMode === 'api' ? 'No disponible' : 'tipo NASA POWER · demo'}</span>}>Condiciones meteorológicas</SectionTitle>
             <div className="weather">
               <span><Thermometer size={14} /> {last ? `${last.temperature.toFixed(1)} °C` : '—'}</span>
               <span><CloudRain size={14} /> {rain7 === null ? '—' : `${rain7.toFixed(0)} mm / 7 d`}</span>

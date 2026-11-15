@@ -8,7 +8,7 @@ import { SymbolIcon } from '@/components/ui/SymbolIcon';
 /** Leyenda interactiva: color + símbolo + comportamiento; clic para mostrar/ocultar. */
 export function Legend() {
   // En pantallas bajas empieza plegada para no tapar a la estrella ni al planeta.
-  const [open, setOpen] = useState(() => typeof window === 'undefined' || window.innerHeight >= 860);
+  const [open, setOpen] = useState(false);
   const kinds = useStore((s) => s.filters.kinds);
   const toggleKind = useStore((s) => s.toggleKind);
   const layer = useStore((s) => s.layer);

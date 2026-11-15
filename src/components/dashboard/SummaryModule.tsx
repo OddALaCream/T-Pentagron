@@ -11,6 +11,7 @@ import { SymbolIcon } from '@/components/ui/SymbolIcon';
 import { Note, SectionTitle, Stat } from '@/components/ui/primitives';
 import type { CellActivity, SeriesPoint } from '@/lib/types/domain';
 import type { TargetInfo } from './useTarget';
+import { env } from '@/config/env';
 
 function sum(points: SeriesPoint[], key: 'viirs' | 'modis' | 'index'): number {
   return points.reduce((a, p) => a + (p[key] ?? 0), 0);
@@ -29,11 +30,16 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
   const { data: series, isLoading } = useSeries(info.target, from < range.start ? range.start : from, date);
   const { data: month } = useSeries(granularity === 'month' ? info.target : null, monthStart(date), monthEnd(date) > range.end ? range.end : monthEnd(date));
 
-  const today = series?.at(-1);
+  const today = granularity === 'month' && month ? {
+    ...month[0], date, modis: month.some(p=>p.modis!==null) ? sum(month, 'modis') : null, viirs: month.some(p=>p.viirs!==null) ? sum(month, 'viirs') : null,
+    index: month.some(p => p.index !== null) ? month.reduce((n,p)=>n+(p.index ?? 0)*(p.activeCells ?? 1),0) / month.filter(p=>p.index!==null).reduce((n,p)=>n+(p.activeCells ?? 1),0) : null,
+    modisFrp: month.reduce((n,p) => n + (p.modisFrp ?? 0),0), viirsFrp: month.reduce((n,p) => n + (p.viirsFrp ?? 0),0),
+  } : series?.at(-1);
   const last7 = series?.slice(-7) ?? [];
   const prev7 = series?.slice(-14, -7) ?? [];
-  const cur = sum(last7, 'index');
-  const prev = sum(prev7, 'index');
+  const metric = layer === 'modis' ? 'modis' : layer === 'viirs' ? 'viirs' : 'index';
+  const cur = sum(last7, metric);
+  const prev = sum(prev7, metric);
   const trend = prev === 0 ? (cur > 0 ? 1 : 0) : (cur - prev) / prev;
   const trendLabel = Math.abs(trend) < 0.1 ? 'estable' : trend > 0 ? 'en aumento' : 'en descenso';
   const TrendIcon = Math.abs(trend) < 0.1 ? ArrowRight : trend > 0 ? ArrowUpRight : ArrowDownRight;
@@ -47,7 +53,7 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
         is_anomaly: today.anomaly,
       }
     : null;
-  const cls = record ? classify(record, layer === 'prediction' ? 'harmonized' : layer, 'day') : null;
+  const cls = record ? classify(record, layer, granularity) : null;
   const meta = CATEGORY[cls?.kind ?? 'none'];
   const center = info.kind === 'cell' && info.h3 ? cellCenter(info.h3) : info.region?.center;
 
@@ -94,22 +100,22 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
         <div>
           <dt>Disponibilidad</dt>
           <dd>
-            {today?.availability === 'observed' ? 'Observación válida (ambos sensores)' : today?.availability === 'partial' ? 'Parcial (un solo sensor)' : 'Sin observación válida'}
+            {env.dataMode === 'api' ? (today?.availability === 'observed' ? 'Detecciones de ambas familias; cobertura desconocida' : today?.availability === 'partial' ? 'Detecciones de una familia; cobertura desconocida' : 'Sin detecciones registradas; cobertura desconocida') : today?.availability === 'observed' ? 'Observación válida (ambos sensores)' : today?.availability === 'partial' ? 'Parcial (un solo sensor)' : 'Sin observación válida'}
           </dd>
         </div>
-        <div><dt>Fuente</dt><dd>Datos de demostración (FIRMS simulado)</dd></div>
+        <div><dt>Fuente</dt><dd>{env.dataMode === 'api' ? 'NASA FIRMS · Bolivia 2024 · type=0' : 'Datos de demostración (FIRMS simulado)'}</dd></div>
       </dl>
 
       {today?.availability === 'missing' && (
-        <Note tone="warn">Sin observación válida este día (nubes o huecos de órbita). No equivale a «sin actividad».</Note>
+        <Note tone="warn">Sin detecciones registradas este día. Cobertura desconocida; no equivale a «sin actividad».</Note>
       )}
 
-      <div className="stats-grid" data-holo-item>
-        <Stat label="VIIRS" value={today?.viirs ?? '—'} unit="det." tone={SENSOR_COLORS.VIIRS} hint="Detecciones VIIRS 375 m del día" />
-        <Stat label="MODIS" value={today?.modis ?? '—'} unit="det." tone={SENSOR_COLORS.MODIS} hint="Detecciones MODIS 1 km del día" />
-        <Stat label="Índice armonizado" value={today?.index == null ? '—' : today.index.toFixed(2)} tone={SENSOR_COLORS.harmonized} hint="0 = sin detección · 1 = actividad muy alta" />
-        <Stat label="FRP total" value={today ? Math.round((today.viirsFrp ?? 0) + (today.modisFrp ?? 0)) : '—'} unit="MW" hint="Potencia radiativa del fuego (suma de sensores)" />
-      </div>
+      {layer === 'prediction' ? <Note>Predicción no disponible: no existe un modelo entrenado.</Note> : <div className="stats-grid" data-holo-item>
+        {layer !== 'modis' && <Stat label="VIIRS · original" value={today?.viirs ?? '—'} unit="det." tone={SENSOR_COLORS.VIIRS} />}
+        {layer !== 'viirs' && <Stat label="MODIS · original" value={today?.modis ?? '—'} unit="det." tone={SENSOR_COLORS.MODIS} />}
+        {layer === 'harmonized' && <Stat label="Índice exploratorio" value={today?.index == null ? '—' : today.index.toFixed(2)} tone={SENSOR_COLORS.harmonized} hint="Normalización robusta por sensor; no calibración física" />}
+        <Stat label={`FRP · ${layer === 'harmonized' ? 'suma de detecciones' : layer.toUpperCase()}`} value={today ? Math.round((layer !== 'modis' ? today.viirsFrp ?? 0 : 0) + (layer !== 'viirs' ? today.modisFrp ?? 0 : 0)) : '—'} unit="MW" />
+      </div>}
 
       {granularity === 'month' && month && (
         <p className="muted small" data-holo-item>
@@ -117,18 +123,18 @@ export function SummaryModule({ info }: { info: TargetInfo }) {
         </p>
       )}
 
-      <div data-holo-item>
+      {layer !== 'prediction' && <div data-holo-item>
         <SectionTitle aside={<span className={`trend trend--${trend > 0.1 ? 'up' : trend < -0.1 ? 'down' : 'flat'}`}><TrendIcon size={14} /> {trendLabel}{Math.abs(trend) >= 0.1 ? ` ${trend > 0 ? '+' : ''}${Math.round(trend * 100)} %` : ''}</span>}>
           Tendencia · últimos 60 días
         </SectionTitle>
         <Sparkline
-          values={series?.map((p) => p.index) ?? []}
+          values={series?.map((p) => p[metric]) ?? []}
           missing={series?.map((p) => p.availability === 'missing')}
           highlight={(series?.length ?? 0) - 1}
-          label="Índice armonizado de los últimos 60 días"
+          label={`${metric === 'index' ? 'Índice exploratorio' : metric.toUpperCase()} de los últimos 60 días`}
         />
-        <p className="muted small">Comparación de los últimos 7 días con los 7 anteriores (índice armonizado). Rayado = sin observación.</p>
-      </div>
+        <p className="muted small">Comparación de los últimos 7 días con los 7 anteriores. {layer === 'harmonized' ? 'Índice exploratorio.' : `Recuentos originales ${layer.toUpperCase()}.`} Sin detecciones registradas no equivale a ausencia de fuego.</p>
+      </div>}
 
       <div className="action-row" data-holo-item>
         <button type="button" className="btn btn--primary" onClick={() => setTransition('entering')}>

@@ -7,9 +7,10 @@ import { useCallback, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { appConfig } from '@/config/app';
 import { brand } from '@/config/brand';
+import { env } from '@/config/env';
 import { useRegionMap, useSeries } from '@/hooks/data';
 import { dayIndexFromISO, formatDate, formatMonth, isoFromDayIndex, monthShort, yearOf } from '@/lib/time/dates';
-import { CATEGORY, kindFromIndex } from '@/lib/science/categories';
+import { CATEGORY, kindFromIndex, SENSOR_COLORS } from '@/lib/science/categories';
 import { useStore } from '@/state/store';
 import { Segmented } from '@/components/ui/primitives';
 
@@ -19,6 +20,7 @@ export function TimelineDock({ compact = false }: { compact?: boolean }) {
   const playing = useStore((s) => s.playing);
   const speed = useStore((s) => s.speed);
   const granularity = useStore((s) => s.granularity);
+  const layer = useStore((s) => s.layer);
   const selection = useStore((s) => s.selection);
   const setDate = useStore((s) => s.setDate);
   const step = useStore((s) => s.step);
@@ -38,7 +40,8 @@ export function TimelineDock({ compact = false }: { compact?: boolean }) {
   const startIdx = dayIndexFromISO(`${year}-01-01`);
   const totalDays = dayIndexFromISO(`${year}-12-31`) - startIdx + 1;
   const pos = (dayIndexFromISO(date) - startIdx) / (totalDays - 1);
-  const max = useMemo(() => Math.max(1, ...(series ?? []).map((p) => p.viirs ?? 0)), [series]);
+  const metric = layer === 'modis' ? 'modis' : layer === 'viirs' ? 'viirs' : 'index';
+  const max = useMemo(() => Math.max(1, ...(series ?? []).map((p) => p[metric] ?? 0)), [series, metric]);
 
   const trackRef = useRef<HTMLDivElement>(null);
   const dateFromX = useCallback(
@@ -112,7 +115,7 @@ export function TimelineDock({ compact = false }: { compact?: boolean }) {
           options={[{ value: 'day', label: 'Día' }, { value: 'month', label: 'Mes' }]}
         />
         <div className="timeline__date">
-          <span className="timeline__date-text" aria-live="off">{granularity === 'month' ? formatMonth(date) : formatDate(date)}</span>
+          <span className="timeline__date-text" aria-live="off">{granularity === 'month' ? formatMonth(date) : formatDate(date)} · UTC</span>
           <input
             type="date"
             className="timeline__date-input"
@@ -148,13 +151,13 @@ export function TimelineDock({ compact = false }: { compact?: boolean }) {
         onKeyDown={onKeyDown}
       >
         <svg className="timeline__hist" viewBox={`0 0 ${totalDays} 40`} preserveAspectRatio="none" aria-hidden="true">
-          {(series ?? []).map((p) => {
+          {(layer === 'prediction' ? [] : series ?? []).map((p) => {
             const i = dayIndexFromISO(p.date) - startIdx;
             if (p.availability === 'missing') return <rect key={p.date} x={i} y={36} width={1} height={4} fill="rgba(140,160,190,0.35)" />;
-            const v = p.viirs ?? 0;
+            const v = p[metric] ?? 0;
             if (v <= 0) return null;
             const h = Math.max(1.5, (v / max) * 36);
-            return <rect key={p.date} x={i} y={40 - h} width={0.9} height={h} fill={CATEGORY[kindFromIndex(p.index ?? 0)].color} opacity={p.anomaly ? 1 : 0.75} />;
+            return <rect key={p.date} x={i} y={40 - h} width={0.9} height={h} fill={layer === 'harmonized' ? CATEGORY[kindFromIndex(p.index ?? 0)].color : layer === 'modis' ? SENSOR_COLORS.MODIS : SENSOR_COLORS.VIIRS} opacity={0.8} />;
           })}
           {/* fuera del rango de datos */}
           {dayIndexFromISO(yEnd) - startIdx < totalDays - 1 && (
@@ -173,7 +176,7 @@ export function TimelineDock({ compact = false }: { compact?: boolean }) {
         </div>
       </div>
       <div className="timeline__caption muted">
-        Actividad diaria VIIRS · {region?.name ?? '—'} (demo) {selection ? '' : '· región piloto'}
+        {layer === 'prediction' ? 'Predicción no disponible · sin modelo entrenado' : layer === 'harmonized' ? 'Índice exploratorio diario 0–1 · normalizado por sensor, sin calibración física' : `Detecciones diarias originales ${layer.toUpperCase()}`} · {region?.name ?? '—'} {env.dataMode === 'mock' ? '(demo)' : '· NASA FIRMS 2024'}
       </div>
     </section>
   );

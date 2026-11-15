@@ -47,7 +47,7 @@ export function ObservatoryHUD() {
   const hidden = phase !== 'observatory' || view !== 'global';
 
   return (
-    <div ref={ref} className={`hud ${hidden ? 'is-hidden' : ''}`} aria-hidden={hidden}>
+    <div ref={ref} className={`hud ${panelOpen && selection ? 'has-inspector' : ''} ${hidden ? 'is-hidden' : ''}`} aria-hidden={hidden}>
       <TopBar />
       <DrawerHost />
       <Legend />

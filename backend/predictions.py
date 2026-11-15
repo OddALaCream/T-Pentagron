@@ -1,23 +1,22 @@
 """Predicción experimental FireSight (Modelo B) para la API del observatorio.
 
-Lee el artefacto que genera `python -m firesight.export_serving` en data/models/:
-  predictions_2024.parquet   probabilidad calibrada t+1 de cada celda H3 res 6 de la zona piloto, cada día
-  explanations_2024.parquet  explicación local exacta del Random Forest para las celdas relevantes
-  model_card.json            versión, métricas, umbral y cobertura
+Lee el artefacto que genera `python -m firesight.export_serving AÑO` en data/models/:
+  predictions_<año>.parquet   probabilidad calibrada t+1 de cada celda H3 res 6 de la zona piloto, cada día
+  explanations_<año>.parquet  explicación local exacta del Random Forest para las celdas relevantes
+  model_card.json             versión, métricas, umbral, cobertura y años exportados
+2024 (validación) está en git; 2025 (prueba) queda solo en local. Se sirven los años cuyos archivos existen.
 No necesita sklearn ni los modelos entrenados. Si el artefacto falta, la API responde 'unavailable'.
 """
 from datetime import timedelta
 from functools import lru_cache
+import threading
 from pathlib import Path
 import json
 
 import h3
 import numpy as np
 import polars as pl
-from shapely import intersects
-from shapely.geometry import Polygon
-
-from backend.geography import BOLIVIA
+from backend.geography import cells_touching_bolivia
 
 SERVING = Path(__file__).resolve().parents[1] / 'data/models'
 TOP_FEATURES = 10
@@ -61,8 +60,13 @@ class Store:
 
     def __init__(self, folder: Path):
         self.card = json.loads((folder / 'model_card.json').read_text(encoding='utf-8'))
-        year = self.card['year']
-        pred = pl.read_parquet(folder / f'predictions_{year}.parquet')
+        listed = self.card.get('years') or {str(self.card['year']): {'evaluation_split': self.card['evaluation_split']}}
+        self.years = [int(y) for y in sorted(listed) if all((folder / f'{k}_{y}.parquet').exists()
+                                                             for k in ('predictions', 'explanations'))]
+        if not self.years:
+            raise FileNotFoundError(f'{folder}: la tarjeta lista {sorted(listed)}, pero no hay sus parquet')
+        self.split_by_year = {y: listed[str(y)]['evaluation_split'] for y in self.years}
+        pred = pl.concat([pl.read_parquet(folder / f'predictions_{y}.parquet') for y in self.years])
         self.cells = np.array(sorted(pred['h3_id'].unique().to_list()))
         self.dates = np.array(sorted(pred['issue_date'].unique().to_list()))
         self.cell_pos = {c: i for i, c in enumerate(self.cells)}
@@ -73,11 +77,11 @@ class Store:
         prob[ci, di] = pred['probability'].to_numpy()
         # El recuadro de entrenamiento cruza a Brasil, donde los archivos FIRMS de Bolivia no tienen detecciones:
         # solo se sirven las celdas que tocan el polígono de Bolivia.
-        keep = intersects(BOLIVIA, [Polygon([(lng, lat) for lat, lng in h3.cell_to_boundary(c)]) for c in self.cells])
+        keep = cells_touching_bolivia(self.cells)
         self.dropped_outside = int((~keep).sum())
         self.cells, self.prob = self.cells[keep], prob[keep]
         self.cell_pos = {c: i for i, c in enumerate(self.cells)}
-        ex = pl.read_parquet(folder / f'explanations_{year}.parquet')
+        ex = pl.concat([pl.read_parquet(folder / f'explanations_{y}.parquet') for y in self.years])
         self.features = [k for k in self.card['feature_order'] if k in FEATURE_INFO]
         self.values = ex.select([f'v_{k}' for k in self.features]).to_numpy()
         self.contrib = ex.select([f'c_{k}' for k in self.features]).to_numpy()
@@ -86,7 +90,10 @@ class Store:
         self.ex_row = {(c, d): i for i, (c, d) in enumerate(zip(ex['h3_id'].to_list(), ex['issue_date'].to_list()))}
         self.parents = {r: np.array([h3.cell_to_parent(c, r) for c in self.cells]) for r in range(0, 6)}
         self.version = self.card['model_version']
-        self.split = self.card['evaluation_split']
+
+    def split_of(self, day):
+        """Partición del día de emisión: 'validation' (2024), 'test' (2025)..."""
+        return self.split_by_year[day.year]
 
     def cells_for(self, h3_id=None):
         """Índices de celdas del modelo bajo un objetivo: celda res 6, celda padre (res 0-5) o toda la región."""
@@ -113,9 +120,21 @@ class Store:
                      'explained_cells': len(rows)}
 
 
-@lru_cache(maxsize=1)
+_LOCK = threading.Lock()
+
+
 def store():
-    return Store(SERVING) if (SERVING / 'model_card.json').exists() else None
+    """Almacén único; el candado evita que dos peticiones simultáneas lo construyan a la vez."""
+    with _LOCK:
+        return _store()
+
+
+@lru_cache(maxsize=1)
+def _store():
+    try:
+        return Store(SERVING) if (SERVING / 'model_card.json').exists() else None
+    except FileNotFoundError:
+        return None
 
 
 def coverage():
@@ -125,6 +144,7 @@ def coverage():
     r = s.card['region']
     return {'name': r['name'], 'h3_resolution': r['h3_resolution'], 'cell_count': int(len(s.cells)), 'bbox': r['bbox'],
             'dates': {'start': s.dates[0].isoformat(), 'end': s.dates[-1].isoformat()},
+            'years': {str(y): s.split_by_year[y] for y in s.years},
             'cells_outside_bolivia_dropped': s.dropped_outside,
             'note': 'El modelo cubre solo la zona piloto; fuera de ella no hay predicción.'}
 
@@ -139,9 +159,10 @@ def predictions(day):
     issued, forecast = day.isoformat(), (day + timedelta(days=1)).isoformat()
     p = s.prob[:, di]
     thr = s.card['threshold_f1']
+    split = s.split_of(day)
     return {'status': 'experimental', 'coverage': coverage(), 'predictions': [
         {'h3_id': c, 'issued_for_date': issued, 'forecast_date': forecast, 'probability': _round(p[i]),
-         'above_threshold': bool(p[i] >= thr), 'model_version': s.version, 'evaluation_split': s.split, 'region_id': 'bolivia'}
+         'above_threshold': bool(p[i] >= thr), 'model_version': s.version, 'evaluation_split': split, 'region_id': 'bolivia'}
         for i, c in enumerate(s.cells) if np.isfinite(p[i])]}
 
 
@@ -162,7 +183,7 @@ def detail(day, h3_id=None):
     base = {'status': 'experimental', 'issued_for_date': day.isoformat(),
             'forecast_date': (day + timedelta(days=1)).isoformat(),
             'model_version': s.version, 'harmonizer_version': s.card['harmonizer_version'],
-            'evaluation_split': s.split, 'features': features, **decomp,
+            'evaluation_split': s.split_of(day), 'features': features, **decomp,
             'contribution_meaning': ('Aporte local de cada variable a la probabilidad del bosque (antes de la calibración '
                                      'isotónica) para ' + ('esta celda y fecha.' if single else
                                      f'las {REGION_SAMPLE} celdas de mayor probabilidad (media).'))}
@@ -192,8 +213,13 @@ def model_info():
              f"{cov['dates']['start']} a {cov['dates']['end']}. Fuera de esa zona no hay predicción.",
              f"Prueba 2025: RF PR-AUC {t['pr_auc']:.3f} vs baseline estacional {sb['pr_auc']:.3f} y persistencia {pe['pr_auc']:.3f}.",
              f"En F1 el RF ({t['f1']:.3f}) es similar a la persistencia ({pe['f1']:.3f}); su ventaja está en el ranking y la calibración.",
-             f"Las fechas servidas son de 2024, el año de validación: el bosque no lo vio, pero la calibración isotónica y "
-             f"el umbral F1 se eligieron con él (PR-AUC 2024 {v['pr_auc']:.3f}). La prueba honesta es 2025."]
+             ]
+    if 2024 in s.years:
+        notes.append(f"2024 es el año de validación: el bosque no lo vio, pero la calibración isotónica y el umbral F1 "
+                     f"se eligieron con él (PR-AUC 2024 {v['pr_auc']:.3f}). La prueba honesta es 2025.")
+    if 2025 in s.years:
+        notes.append(f"2025 es el año de prueba: ni el bosque, ni la calibración ni el umbral lo vieron "
+                     f"(PR-AUC 2025 {t['pr_auc']:.3f}).")
     for k, ext in sorted(s.card.get('external_validation', {}).items()):
         rf = ext['models']['random_forest']
         notes.append(f"Validación externa {k} (sin reentrenar): RF PR-AUC {rf['pr_auc']:.3f}, F1 {rf['f1']:.3f}.")

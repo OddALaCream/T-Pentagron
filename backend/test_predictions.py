@@ -91,7 +91,7 @@ class PredictionApi(unittest.TestCase):
     def test_out_of_coverage_and_dates(self):
         la_paz = h3.latlng_to_cell(-16.5, -68.15, 6)                  # Bolivia, fuera de la zona piloto
         self.assertEqual(self.client.get('/predictions/detail', params={'h3_id': la_paz, 'date': D}).status_code, 404)
-        self.assertEqual(self.client.get('/predictions', params={'date': '2025-01-01'}).status_code, 422)
+        self.assertEqual(self.client.get('/predictions', params={'date': '2023-01-01'}).status_code, 422)  # año sin archivo
         self.assertEqual(self.client.get('/predictions', params={'date': D, 'region': 'fake'}).status_code, 422)
         self.assertEqual(self.client.get('/predictions/detail', params={'h3_id': 'x', 'date': D}).status_code, 422)
         last = self.get('/predictions', date='2024-12-31')['predictions']

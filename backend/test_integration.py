@@ -65,7 +65,7 @@ class ArchiveIntegration(unittest.TestCase):
         self.assertEqual(parent_series.status_code,200)
         expected = sum(r['viirs_detected'] or 0 for r in activity if h3.cell_to_parent(r['h3_id'],4)==parent)
         self.assertEqual(parent_series.json()['points'][0]['viirs_detected'],expected)
-        self.assertEqual(self.client.get('/activity?date=2025-01-01').status_code,422)
+        self.assertEqual(self.client.get('/activity?date=2023-01-01').status_code,422)  # año sin archivo
         self.assertEqual(self.client.get('/activity?date=2024-09-06&region=fake').status_code,422)
         self.assertEqual(self.client.get('/detections?date=2024-09-06&h3_id=invalid').status_code,422)
         for endpoint in ['/health','/meta','/regions','/regions/bolivia/cells','/docs','/openapi.json','/model']:
